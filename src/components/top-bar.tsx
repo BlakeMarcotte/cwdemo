@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { Suspense } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Search, Sun, Moon, ChevronRight, Home } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -42,11 +43,22 @@ interface Crumb {
   href?: string;
 }
 
-function buildBreadcrumbs(pathname: string): Crumb[] {
+function buildBreadcrumbs(pathname: string, from?: string | null): Crumb[] {
   if (pathname === "/") return [{ label: "Dashboard" }];
 
   const segments = pathname.split("/").filter(Boolean);
   const crumbs: Crumb[] = [{ label: "Dashboard", href: "/" }];
+
+  // If navigated from another section (e.g. opportunities → buildings/[id]),
+  // show the origin section as the parent instead of the current section
+  if (from && sectionLabels[from] && segments.length >= 2) {
+    crumbs.push({ label: sectionLabels[from], href: `/${from}` });
+    const section = segments[0];
+    const entityId = segments[1];
+    const entityName = getEntityName(section, entityId);
+    crumbs.push({ label: entityName ?? entityId });
+    return crumbs;
+  }
 
   if (segments.length >= 1) {
     const section = segments[0];
@@ -65,9 +77,11 @@ function buildBreadcrumbs(pathname: string): Crumb[] {
   return crumbs;
 }
 
-export function TopBar() {
+function TopBarInner() {
   const pathname = usePathname();
-  const crumbs = buildBreadcrumbs(pathname);
+  const searchParams = useSearchParams();
+  const from = searchParams.get("from");
+  const crumbs = buildBreadcrumbs(pathname, from);
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -127,5 +141,13 @@ export function TopBar() {
         </button>
       </div>
     </header>
+  );
+}
+
+export function TopBar() {
+  return (
+    <Suspense fallback={<div className="h-12 border-b border-border bg-card" />}>
+      <TopBarInner />
+    </Suspense>
   );
 }

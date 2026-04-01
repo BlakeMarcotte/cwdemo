@@ -19,9 +19,12 @@ import {
   MapPinned,
   StickyNote,
   Pencil,
+  ListTodo,
+  Check,
 } from "lucide-react";
-import { useData } from "@/lib/data-context";
+import { useData, genId } from "@/lib/data-context";
 import { EditDialog, type FieldDef } from "@/components/edit-dialog";
+import { ScrollableTable } from "@/components/ui/scrollable-table";
 import { TEAM_MEMBERS } from "@/lib/data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -111,8 +114,9 @@ function formatNumber(n: number) {
 
 export default function CompanyDetailPage() {
   const params = useParams<{ id: string }>();
-  const { companies, contacts, leases, activities, opportunities, updateCompany } = useData();
+  const { companies, contacts, leases, activities, opportunities, updateCompany, todoItems, addTodoItem } = useData();
   const [editOpen, setEditOpen] = useState(false);
+  const [todoAdded, setTodoAdded] = useState(false);
 
   const company = companies.find((c) => c.id === params.id);
 
@@ -210,10 +214,40 @@ export default function CompanyDetailPage() {
             </div>
           </div>
 
-          <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
-            <Pencil size={14} className="mr-1.5" />
-            Edit
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const maxPos = todoItems.length > 0
+                  ? Math.max(...todoItems.map((t) => t.position))
+                  : 0;
+                addTodoItem({
+                  id: genId("td"),
+                  title: `Follow up on ${company!.name}`,
+                  completed: false,
+                  position: maxPos + 1,
+                  entityType: "company",
+                  entityId: company!.id,
+                  entityName: company!.name,
+                  createdAt: new Date().toISOString().slice(0, 10),
+                });
+                setTodoAdded(true);
+                setTimeout(() => setTodoAdded(false), 2000);
+              }}
+            >
+              {todoAdded ? (
+                <Check size={14} className="mr-1.5 text-emerald-400" />
+              ) : (
+                <ListTodo size={14} className="mr-1.5" />
+              )}
+              {todoAdded ? "Added!" : "Add to To-Do"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+              <Pencil size={14} className="mr-1.5" />
+              Edit
+            </Button>
+          </div>
         </div>
 
         <EditDialog
@@ -342,7 +376,8 @@ export default function CompanyDetailPage() {
               No activity history for this company.
             </p>
           ) : (
-            <div className="rounded-lg border border-border bg-card">
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <ScrollableTable>
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
@@ -413,6 +448,7 @@ export default function CompanyDetailPage() {
                   ))}
                 </TableBody>
               </Table>
+              </ScrollableTable>
             </div>
           )}
         </TabsContent>
@@ -424,7 +460,8 @@ export default function CompanyDetailPage() {
               No contacts linked to this company.
             </p>
           ) : (
-            <div className="rounded-lg border border-border bg-card">
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <ScrollableTable>
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
@@ -482,6 +519,7 @@ export default function CompanyDetailPage() {
                   ))}
                 </TableBody>
               </Table>
+              </ScrollableTable>
             </div>
           )}
         </TabsContent>
@@ -493,7 +531,8 @@ export default function CompanyDetailPage() {
               No leases linked to this company.
             </p>
           ) : (
-            <div className="rounded-lg border border-border bg-card">
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <ScrollableTable>
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
@@ -547,6 +586,7 @@ export default function CompanyDetailPage() {
                   ))}
                 </TableBody>
               </Table>
+              </ScrollableTable>
             </div>
           )}
         </TabsContent>
@@ -558,7 +598,8 @@ export default function CompanyDetailPage() {
               No activities recorded for this company.
             </p>
           ) : (
-            <div className="rounded-lg border border-border bg-card">
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <ScrollableTable>
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
@@ -617,6 +658,7 @@ export default function CompanyDetailPage() {
                   ))}
                 </TableBody>
               </Table>
+              </ScrollableTable>
             </div>
           )}
         </TabsContent>

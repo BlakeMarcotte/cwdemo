@@ -298,7 +298,7 @@ export default function OpportunitiesPage() {
                               <div className="flex items-center gap-1">
                                 <MapPin size={10} className="text-muted-foreground shrink-0" />
                                 <Link
-                                  href={`/buildings/${lease.buildingId}`}
+                                  href={`/buildings/${lease.buildingId}?from=opportunities`}
                                   className="text-[11px] font-semibold text-cw-blue hover:underline truncate"
                                 >
                                   {lease.address}
@@ -334,7 +334,7 @@ export default function OpportunitiesPage() {
 
                           {/* Company */}
                           <Link
-                            href={`/companies/${lease.companyId}`}
+                            href={`/companies/${lease.companyId}?from=opportunities`}
                             className="text-[11px] text-cw-green hover:underline block truncate"
                           >
                             {lease.company}
@@ -368,7 +368,7 @@ export default function OpportunitiesPage() {
                           {/* Top contact */}
                           {companyContacts.length > 0 && (
                             <div className="text-[10px] text-muted-foreground border-t border-border/50 pt-1 mt-1">
-                              <Link href={`/contacts/${companyContacts[0].id}`} className="text-cw-green hover:underline">
+                              <Link href={`/contacts/${companyContacts[0].id}?from=opportunities`} className="text-cw-green hover:underline">
                                 {companyContacts[0].name}
                               </Link>
                               {companyContacts.length > 1 && (

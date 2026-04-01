@@ -37,6 +37,7 @@ import {
   CheckSquare,
   Square,
 } from "lucide-react";
+import { ScrollableTable } from "@/components/ui/scrollable-table";
 import { TEAM_MEMBERS } from "@/lib/data";
 
 const classColor: Record<string, string> = {
@@ -413,6 +414,7 @@ function TenantsSection({
         />
       </div>
       <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <ScrollableTable>
         <Table>
           <TableHeader>
             <TableRow>
@@ -495,6 +497,7 @@ function TenantsSection({
             </TableRow>
           </TableBody>
         </Table>
+        </ScrollableTable>
       </div>
     </div>
   );
@@ -586,6 +589,7 @@ function ContactsSection({
         <p className="text-sm text-muted-foreground">No contacts on file for this building.</p>
       ) : (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <ScrollableTable>
           <Table>
             <TableHeader>
               <TableRow>
@@ -667,6 +671,7 @@ function ContactsSection({
               })}
             </TableBody>
           </Table>
+          </ScrollableTable>
         </div>
       )}
     </div>
@@ -808,6 +813,7 @@ function LeaseExpirationSection({
           </CardHeader>
           <CardContent>
             <div className="rounded-lg border border-border overflow-hidden">
+              <ScrollableTable>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -859,6 +865,7 @@ function LeaseExpirationSection({
                   })}
                 </TableBody>
               </Table>
+              </ScrollableTable>
             </div>
           </CardContent>
         </Card>

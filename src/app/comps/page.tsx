@@ -21,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ScrollableTable } from "@/components/ui/scrollable-table";
 import { useData } from "@/lib/data-context";
 import type { Opportunity, Lease } from "@/lib/data";
 
@@ -129,6 +130,7 @@ function ClosedDealCard({
             </p>
           ) : (
             <div className="rounded-lg border border-border overflow-hidden">
+              <ScrollableTable>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -193,6 +195,7 @@ function ClosedDealCard({
                   ))}
                 </TableBody>
               </Table>
+              </ScrollableTable>
             </div>
           )}
         </CardContent>

@@ -16,6 +16,7 @@ export type Priority = "High" | "Medium" | "Low";
 export type ProspectStatus = "Active" | "Cooling Off" | "Responded" | "Not Interested";
 export type ProspectList = "focus" | "reserve";
 export type TaskStatus = "To Do" | "In Progress" | "Done";
+export type TodoEntityType = "company" | "contact" | "lease" | "building" | "opportunity" | "activity" | "prospect";
 
 export const TEAM_MEMBERS = ["Michael Madden", "Tate Surtani", "Jonathan Metzel"];
 
@@ -27,6 +28,11 @@ export interface Building { id: string; address: string; city: string; state: st
 export interface Opportunity { id: string; companyId: string; company: string; contactId: string; contact: string; stage: OpportunityStage; squareFootage: number; targetMoveDate: string; estimatedCommission: number; notes: string; teamMembers: string[]; }
 export interface Activity { id: string; type: ActivityType; date: string; time: string; priority: Priority; status: TaskStatus; dueDate: string; contactId: string; contact: string; companyId: string; company: string; officePhone: string; ext: number | null; mobilePhone: string; email: string; regarding: string; addDate: string; teamMembers: string[]; }
 export interface ProspectEntry { id: string; companyId: string; company: string; industry: string; nugget: string; lastContactDate: string; nextFollowUpDate: string; status: ProspectStatus; teamLead: string; list: ProspectList; teamMembers: string[]; }
+
+export type Quarter = "Q1" | "Q2" | "Q3" | "Q4";
+export interface QuarterGoal { quarter: Quarter; target: number; actual: number; }
+export interface Goal { id: string; name: string; annualTarget: number; unit: string; format: "currency" | "number"; quarterGoals: QuarterGoal[]; year: number; }
+export interface TodoItem { id: string; title: string; completed: boolean; position: number; entityType?: TodoEntityType; entityId?: string; entityName?: string; createdAt: string; }
 
 // ---------------------------------------------------------------------------
 // Companies (c1 – c32)
@@ -469,5 +475,63 @@ export const prospectEntries: ProspectEntry[] = [
   { id: "p28", companyId: "c24", company: "Winston & Strawn LLP", industry: "Legal", nugget: "Sublisting 2 floors at 77 W Wacker — JLL MSA in place. Past C&W client, warm relationship with Jeffrey Canton for future renewal in 2029.", lastContactDate: "03/26/2026", nextFollowUpDate: "06/26/2026", status: "Cooling Off", teamLead: "Lily Chen", list: "reserve", teamMembers: [] },
   { id: "p29", companyId: "c30", company: "Grant Thornton LLP", industry: "Consulting", nugget: "Newmark MSA in place but underperforming — 180 N Stetson lease expires 3/2028. RE Director openly frustrated, could flip broker if approached correctly.", lastContactDate: "04/28/2026", nextFollowUpDate: "05/28/2026", status: "Active", teamLead: "Lily Chen", list: "reserve", teamMembers: [] },
   { id: "p30", companyId: "c22", company: "Advocate Health", industry: "Healthcare", nugget: "Existing C&W client at 155 N Wacker through 2031 — evaluating additional clinical admin space downtown, but timeline is uncertain. Monitor quarterly.", lastContactDate: "04/03/2026", nextFollowUpDate: "07/03/2026", status: "Cooling Off", teamLead: "Jonathan Metzel", list: "reserve", teamMembers: [] },
+];
+
+// ---------------------------------------------------------------------------
+// To-Do Items (td1 – td10)
+// ---------------------------------------------------------------------------
+export const todoItems: TodoItem[] = [
+  { id: "td1", title: "Send LOI to Chubb Insurance for 550 W Jackson expansion", completed: false, position: 1, entityType: "company", entityId: "c2", entityName: "Chubb Insurance", createdAt: "2026-03-28" },
+  { id: "td2", title: "Follow up with Rachel Nguyen at IonQ re: Chicago lab space", completed: false, position: 2, entityType: "contact", entityId: "ct5", entityName: "Rachel Nguyen", createdAt: "2026-03-29" },
+  { id: "td3", title: "Prepare market comp analysis for Kraft Heinz", completed: false, position: 3, entityType: "company", entityId: "c31", entityName: "Kraft Heinz", createdAt: "2026-03-30" },
+  { id: "td4", title: "Review Baxter International lease renewal terms", completed: false, position: 4, entityType: "company", entityId: "c8", entityName: "Baxter International", createdAt: "2026-03-30" },
+  { id: "td5", title: "Schedule Q2 pipeline review with team", completed: false, position: 5, createdAt: "2026-03-31" },
+  { id: "td6", title: "Update Citadel opportunity stage to Negotiation", completed: true, position: 6, entityType: "company", entityId: "c14", entityName: "Citadel LLC", createdAt: "2026-03-27" },
+  { id: "td7", title: "Call Ares Management re: 71 S Wacker expansion LOI", completed: false, position: 7, entityType: "company", entityId: "c26", entityName: "Ares Management", createdAt: "2026-04-01" },
+  { id: "td8", title: "Finalize Relativity tour schedule for 444 W Lake alternatives", completed: false, position: 8, entityType: "company", entityId: "c29", entityName: "Relativity", createdAt: "2026-04-01" },
+  { id: "td9", title: "Send HCSC competitive broker pitch deck", completed: false, position: 9, entityType: "company", entityId: "c32", entityName: "Health Care Service Corporation", createdAt: "2026-03-31" },
+  { id: "td10", title: "Review Motorola Solutions building sale impact analysis", completed: true, position: 10, entityType: "company", entityId: "c23", entityName: "Motorola Solutions", createdAt: "2026-03-26" },
+];
+
+// ---------------------------------------------------------------------------
+// Goals (g1 – g4) — 2026 Annual Goals with Quarterly Breakdown
+// ---------------------------------------------------------------------------
+export const goals: Goal[] = [
+  {
+    id: "g1", name: "Commission Revenue", annualTarget: 4000000, unit: "$", format: "currency", year: 2026,
+    quarterGoals: [
+      { quarter: "Q1", target: 800000, actual: 1100000 },
+      { quarter: "Q2", target: 1200000, actual: 320000 },
+      { quarter: "Q3", target: 1000000, actual: 0 },
+      { quarter: "Q4", target: 1000000, actual: 0 },
+    ],
+  },
+  {
+    id: "g2", name: "Deals Closed", annualTarget: 24, unit: "deals", format: "number", year: 2026,
+    quarterGoals: [
+      { quarter: "Q1", target: 5, actual: 7 },
+      { quarter: "Q2", target: 7, actual: 2 },
+      { quarter: "Q3", target: 6, actual: 0 },
+      { quarter: "Q4", target: 6, actual: 0 },
+    ],
+  },
+  {
+    id: "g3", name: "New Clients", annualTarget: 12, unit: "clients", format: "number", year: 2026,
+    quarterGoals: [
+      { quarter: "Q1", target: 3, actual: 4 },
+      { quarter: "Q2", target: 3, actual: 1 },
+      { quarter: "Q3", target: 3, actual: 0 },
+      { quarter: "Q4", target: 3, actual: 0 },
+    ],
+  },
+  {
+    id: "g4", name: "Square Footage Leased", annualTarget: 500000, unit: "SF", format: "number", year: 2026,
+    quarterGoals: [
+      { quarter: "Q1", target: 100000, actual: 135000 },
+      { quarter: "Q2", target: 150000, actual: 28000 },
+      { quarter: "Q3", target: 125000, actual: 0 },
+      { quarter: "Q4", target: 125000, actual: 0 },
+    ],
+  },
 ];
 

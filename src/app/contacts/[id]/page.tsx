@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useData } from "@/lib/data-context";
+import { useData, genId } from "@/lib/data-context";
 import { EditDialog, type FieldDef } from "@/components/edit-dialog";
 import { TEAM_MEMBERS } from "@/lib/data";
 import type { Activity, Designation } from "@/lib/data";
@@ -31,7 +31,10 @@ import {
   ExternalLink,
   Building2,
   Pencil,
+  ListTodo,
+  Check,
 } from "lucide-react";
+import { ScrollableTable } from "@/components/ui/scrollable-table";
 import { useState } from "react";
 
 const designationColor: Record<string, string> = {
@@ -69,10 +72,11 @@ const contactFields: FieldDef[] = [
 
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { contacts, companies, activities, updateContact } = useData();
+  const { contacts, companies, activities, updateContact, todoItems, addTodoItem } = useData();
   const contact = contacts.find((c) => c.id === id);
   const [notes, setNotes] = useState("");
   const [editOpen, setEditOpen] = useState(false);
+  const [todoAdded, setTodoAdded] = useState(false);
 
   if (!contact) {
     return (
@@ -106,10 +110,40 @@ export default function ContactDetailPage() {
                 </Link>
               </p>
             </div>
-            <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
-              <Pencil size={14} className="mr-1" />
-              Edit
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const maxPos = todoItems.length > 0
+                    ? Math.max(...todoItems.map((t) => t.position))
+                    : 0;
+                  addTodoItem({
+                    id: genId("td"),
+                    title: `Follow up with ${contact!.name}`,
+                    completed: false,
+                    position: maxPos + 1,
+                    entityType: "contact",
+                    entityId: contact!.id,
+                    entityName: contact!.name,
+                    createdAt: new Date().toISOString().slice(0, 10),
+                  });
+                  setTodoAdded(true);
+                  setTimeout(() => setTodoAdded(false), 2000);
+                }}
+              >
+                {todoAdded ? (
+                  <Check size={14} className="mr-1 text-emerald-400" />
+                ) : (
+                  <ListTodo size={14} className="mr-1" />
+                )}
+                {todoAdded ? "Added!" : "Add to To-Do"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+                <Pencil size={14} className="mr-1" />
+                Edit
+              </Button>
+            </div>
           </div>
           <div className="flex gap-1">
             {contact.designation.map((d) => (
@@ -318,7 +352,8 @@ function ActivityTable({
   }
 
   return (
-    <div className="mt-4 rounded-lg border border-border bg-card">
+    <div className="mt-4 rounded-lg border border-border bg-card overflow-hidden">
+      <ScrollableTable>
       <Table>
         <TableHeader>
           <TableRow>
@@ -347,6 +382,7 @@ function ActivityTable({
           ))}
         </TableBody>
       </Table>
+      </ScrollableTable>
     </div>
   );
 }

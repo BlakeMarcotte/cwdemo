@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowUpDown, Ban, Plus, Search, X } from "lucide-react";
 import { useData, genId } from "@/lib/data-context";
 import { EditDialog, type FieldDef } from "@/components/edit-dialog";
+import { ScrollableTable } from "@/components/ui/scrollable-table";
 import { TEAM_MEMBERS } from "@/lib/data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -342,7 +343,8 @@ export default function CompaniesPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card">
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <ScrollableTable>
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -461,6 +463,7 @@ export default function CompaniesPage() {
             ))}
           </TableBody>
         </Table>
+        </ScrollableTable>
       </div>
     </div>
   );

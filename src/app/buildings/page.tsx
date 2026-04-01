@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ScrollableTable } from "@/components/ui/scrollable-table";
 import { TEAM_MEMBERS } from "@/lib/data";
 import type { Building } from "@/lib/data";
 
@@ -307,7 +308,8 @@ export default function BuildingsPage() {
         onSave={handleAdd}
       />
 
-      <div className="rounded-lg border border-border bg-card">
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <ScrollableTable>
         <Table>
           <TableHeader>
             <TableRow>
@@ -398,6 +400,7 @@ export default function BuildingsPage() {
             ))}
           </TableBody>
         </Table>
+        </ScrollableTable>
       </div>
     </div>
   );

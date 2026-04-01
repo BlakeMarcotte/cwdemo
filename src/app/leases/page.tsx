@@ -17,6 +17,7 @@ import {
 import { TEAM_MEMBERS } from "@/lib/data";
 import type { Lease } from "@/lib/data";
 import { Badge } from "@/components/ui/badge";
+import { ScrollableTable } from "@/components/ui/scrollable-table";
 
 type SortKey = keyof Lease;
 
@@ -417,7 +418,8 @@ export default function LeasesPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card">
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <ScrollableTable>
         <Table>
           <TableHeader>
             <TableRow>
@@ -548,6 +550,7 @@ export default function LeasesPage() {
             ))}
           </TableBody>
         </Table>
+        </ScrollableTable>
       </div>
     </div>
   );

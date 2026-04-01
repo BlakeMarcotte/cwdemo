@@ -16,6 +16,8 @@ import type {
   Opportunity,
   Activity,
   ProspectEntry,
+  TodoItem,
+  Goal,
 } from "./data";
 import {
   companies as seedCompanies,
@@ -25,6 +27,8 @@ import {
   opportunities as seedOpportunities,
   activities as seedActivities,
   prospectEntries as seedProspects,
+  todoItems as seedTodoItems,
+  goals as seedGoals,
 } from "./data";
 import { supabase } from "./supabase";
 
@@ -330,6 +334,32 @@ function toProspectRow(p: Partial<ProspectEntry>): Record<string, unknown> {
   if (p.list !== undefined) m.list = p.list;
   return m;
 }
+
+function mapTodoItem(r: any): TodoItem {
+  return {
+    id: r.id,
+    title: r.title ?? "",
+    completed: r.completed ?? false,
+    position: r.position ?? 0,
+    entityType: r.entity_type ?? undefined,
+    entityId: r.entity_id ?? undefined,
+    entityName: r.entity_name ?? undefined,
+    createdAt: r.created_at ?? "",
+  };
+}
+
+function toTodoItemRow(t: Partial<TodoItem>): Record<string, unknown> {
+  const m: Record<string, unknown> = {};
+  if (t.id !== undefined) m.id = t.id;
+  if (t.title !== undefined) m.title = t.title;
+  if (t.completed !== undefined) m.completed = t.completed;
+  if (t.position !== undefined) m.position = t.position;
+  if (t.entityType !== undefined) m.entity_type = t.entityType;
+  if (t.entityId !== undefined) m.entity_id = t.entityId;
+  if (t.entityName !== undefined) m.entity_name = t.entityName;
+  if (t.createdAt !== undefined) m.created_at = t.createdAt;
+  return m;
+}
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 // ---------------------------------------------------------------------------
@@ -344,6 +374,8 @@ interface DataContextType {
   opportunities: Opportunity[];
   activities: Activity[];
   prospects: ProspectEntry[];
+  todoItems: TodoItem[];
+  goals: Goal[];
 
   addCompany: (c: Company) => void;
   updateCompany: (id: string, partial: Partial<Company>) => void;
@@ -373,6 +405,9 @@ interface DataContextType {
   updateProspect: (id: string, partial: Partial<ProspectEntry>) => void;
   deleteProspect: (id: string) => void;
 
+  addTodoItem: (t: TodoItem) => void;
+  updateTodoItem: (id: string, partial: Partial<TodoItem>) => void;
+  deleteTodoItem: (id: string) => void;
 }
 
 const DataContext = createContext<DataContextType | null>(null);
@@ -390,11 +425,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [opportunities, setOpportunities] = useState<Opportunity[]>(seedOpportunities);
   const [activities, setActivities] = useState<Activity[]>(seedActivities);
   const [prospects, setProspects] = useState<ProspectEntry[]>(seedProspects);
+  const [todoItems, setTodoItems] = useState<TodoItem[]>(seedTodoItems);
+  const goals = seedGoals;
 
   // Fetch all data from Supabase on mount
   useEffect(() => {
     async function fetchAll() {
-      const [cRes, ctRes, bRes, lRes, oRes, aRes, pRes] = await Promise.all([
+      const [cRes, ctRes, bRes, lRes, oRes, aRes, pRes, tdRes] = await Promise.all([
         supabase.from("companies").select("*"),
         supabase.from("contacts").select("*"),
         supabase.from("buildings").select("*"),
@@ -402,6 +439,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         supabase.from("opportunities").select("*"),
         supabase.from("activities").select("*"),
         supabase.from("prospect_entries").select("*"),
+        supabase.from("todo_items").select("*"),
       ]);
 
       if (cRes.data?.length) setCompanies(cRes.data.map(mapCompany));
@@ -411,6 +449,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (oRes.data?.length) setOpportunities(oRes.data.map(mapOpportunity));
       if (aRes.data?.length) setActivities(aRes.data.map(mapActivity));
       if (pRes.data?.length) setProspects(pRes.data.map(mapProspect));
+      if (tdRes.data?.length) setTodoItems(tdRes.data.map(mapTodoItem));
     }
     fetchAll();
   }, []);
@@ -513,10 +552,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
     supabase.from("prospect_entries").delete().eq("id", id).then();
   }, []);
 
+  // --- TodoItem CRUD ---
+  const addTodoItem = useCallback((t: TodoItem) => {
+    setTodoItems((p) => [...p, t]);
+    supabase.from("todo_items").insert(toTodoItemRow(t)).then();
+  }, []);
+  const updateTodoItem = useCallback((id: string, partial: Partial<TodoItem>) => {
+    setTodoItems((p) => p.map((x) => (x.id === id ? { ...x, ...partial } : x)));
+    supabase.from("todo_items").update(toTodoItemRow(partial)).eq("id", id).then();
+  }, []);
+  const deleteTodoItem = useCallback((id: string) => {
+    setTodoItems((p) => p.filter((x) => x.id !== id));
+    supabase.from("todo_items").delete().eq("id", id).then();
+  }, []);
+
   return (
     <DataContext.Provider
       value={{
-        companies, contacts, leases, buildings, opportunities, activities, prospects,
+        companies, contacts, leases, buildings, opportunities, activities, prospects, todoItems, goals,
         addCompany, updateCompany, deleteCompany,
         addContact, updateContact, deleteContact,
         addLease, updateLease, deleteLease,
@@ -524,6 +577,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         addOpportunity, updateOpportunity, deleteOpportunity,
         addActivity, updateActivity, deleteActivity,
         addProspect, updateProspect, deleteProspect,
+        addTodoItem, updateTodoItem, deleteTodoItem,
       }}
     >
       {children}

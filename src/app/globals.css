@@ -162,3 +162,47 @@
     @apply leading-relaxed;
   }
 }
+
+@layer utilities {
+  /* Hide native scrollbar — used when sticky scrollbar is shown */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Sticky scrollbar — always visible, styled to match the UI */
+.sticky-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.55 0.02 250) transparent;
+}
+.sticky-scrollbar::-webkit-scrollbar {
+  height: 10px;
+  -webkit-appearance: none;
+}
+.sticky-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 5px;
+}
+.sticky-scrollbar::-webkit-scrollbar-thumb {
+  background-color: oklch(0.55 0.02 250 / 40%);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.sticky-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: oklch(0.55 0.02 250 / 60%);
+}
+
+.dark .sticky-scrollbar {
+  scrollbar-color: oklch(0.5 0.02 250) transparent;
+}
+.dark .sticky-scrollbar::-webkit-scrollbar-thumb {
+  background-color: oklch(0.5 0.02 250 / 40%);
+}
+.dark .sticky-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: oklch(0.5 0.02 250 / 60%);
+}

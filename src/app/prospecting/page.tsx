@@ -25,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ScrollableTable } from "@/components/ui/scrollable-table";
 import { useData, genId } from "@/lib/data-context";
 import { EditDialog, type FieldDef } from "@/components/edit-dialog";
 import { TEAM_MEMBERS } from "@/lib/data";
@@ -325,6 +326,7 @@ export default function ProspectingPage() {
         </div>
 
         <div className="rounded-xl border border-border overflow-hidden">
+          <ScrollableTable>
           <Table>
             <TableHeader>
               <TableRow>
@@ -424,6 +426,7 @@ export default function ProspectingPage() {
               })}
             </TableBody>
           </Table>
+          </ScrollableTable>
         </div>
       </section>
 
@@ -444,6 +447,7 @@ export default function ProspectingPage() {
         </div>
 
         <div className="rounded-xl border border-border/60 overflow-hidden">
+          <ScrollableTable>
           <Table>
             <TableHeader>
               <TableRow>
@@ -557,6 +561,7 @@ export default function ProspectingPage() {
               })}
             </TableBody>
           </Table>
+          </ScrollableTable>
         </div>
       </section>
 

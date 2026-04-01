@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ScrollableTable } from "@/components/ui/scrollable-table";
 import { useData, genId } from "@/lib/data-context";
 import { EditDialog, type FieldDef } from "@/components/edit-dialog";
 import { TEAM_MEMBERS } from "@/lib/data";
@@ -439,7 +440,8 @@ export default function ActivitiesPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-border bg-card">
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <ScrollableTable>
         <Table>
           <TableHeader>
             <TableRow>
@@ -605,6 +607,7 @@ export default function ActivitiesPage() {
             })}
           </TableBody>
         </Table>
+        </ScrollableTable>
       </div>
 
       {/* Add Activity Dialog */}

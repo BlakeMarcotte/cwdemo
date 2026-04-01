@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ScrollableTable } from "@/components/ui/scrollable-table";
 import type { Contact } from "@/lib/data";
 import { TEAM_MEMBERS } from "@/lib/data";
 
@@ -279,7 +280,8 @@ export default function ContactsPage() {
         }}
       />
 
-      <div className="rounded-lg border border-border bg-card">
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <ScrollableTable>
         <Table>
           <TableHeader>
             <TableRow>
@@ -402,6 +404,7 @@ export default function ContactsPage() {
             ))}
           </TableBody>
         </Table>
+        </ScrollableTable>
       </div>
     </div>
   );
