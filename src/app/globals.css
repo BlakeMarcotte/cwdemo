@@ -10,6 +10,9 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
+  --color-cw-green: var(--cw-green);
+  --color-cw-blue: var(--cw-blue);
+  --color-cw-red: var(--cw-red);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -81,40 +84,51 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Custom CW brand variables — light mode */
+  --cw-green: oklch(0.55 0.19 150);
+  --cw-blue: oklch(0.52 0.18 255);
+  --cw-red: oklch(0.53 0.2 25);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  /* Dark navy CRE dashboard palette */
+  --background: oklch(0.155 0.015 265);       /* #0f1117 - dark navy */
+  --foreground: oklch(0.93 0.005 265);        /* light text */
+  --card: oklch(0.195 0.02 265);              /* #1a1d2e - slightly lighter navy */
+  --card-foreground: oklch(0.93 0.005 265);
+  --popover: oklch(0.195 0.02 265);
+  --popover-foreground: oklch(0.93 0.005 265);
+  --primary: oklch(0.9 0.005 265);
+  --primary-foreground: oklch(0.18 0.02 265);
+  --secondary: oklch(0.24 0.025 265);
+  --secondary-foreground: oklch(0.93 0.005 265);
+  --muted: oklch(0.24 0.025 265);
+  --muted-foreground: oklch(0.65 0.015 265);
+  --accent: oklch(0.24 0.025 265);
+  --accent-foreground: oklch(0.93 0.005 265);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0.01 265 / 10%);
+  --input: oklch(1 0.01 265 / 15%);
+  --ring: oklch(0.5 0.02 265);
+  --chart-1: oklch(0.75 0.15 160);
+  --chart-2: oklch(0.65 0.18 250);
+  --chart-3: oklch(0.55 0.12 300);
+  --chart-4: oklch(0.7 0.14 80);
+  --chart-5: oklch(0.6 0.2 30);
+  --sidebar: oklch(0.13 0.02 265);            /* #0d0f18 - darkest navy */
+  --sidebar-foreground: oklch(0.85 0.01 265);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-accent: oklch(0.22 0.03 265);
+  --sidebar-accent-foreground: oklch(0.93 0.005 265);
+  --sidebar-border: oklch(1 0.01 265 / 8%);
+  --sidebar-ring: oklch(0.5 0.02 265);
+
+  /* Custom CW brand variables */
+  --cw-green: oklch(0.72 0.19 150);           /* #22c55e - linked records */
+  --cw-blue: oklch(0.62 0.18 255);            /* #3b82f6 - hyperlinks */
+  --cw-red: oklch(0.63 0.2 25);               /* field type indicators */
 }
 
 @layer base {
