@@ -384,20 +384,23 @@ export default function CompaniesPage() {
                   {c.mainPhone}
                 </TableCell>
 
-                {/* Website — blue external link */}
-                <TableCell className="text-xs px-2 py-1.5">
-                  <a
-                    href={
-                      c.website.startsWith("http")
-                        ? c.website
-                        : `https://${c.website}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-400 hover:text-blue-300 hover:underline"
-                  >
-                    {c.website.replace(/^https?:\/\//, "")}
-                  </a>
+                {/* Website — blue external link, truncated */}
+                <TableCell className="text-xs px-2 py-1.5 max-w-[140px]">
+                  {c.website ? (
+                    <a
+                      href={
+                        c.website.startsWith("http")
+                          ? c.website
+                          : `https://${c.website}`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:text-blue-300 hover:underline truncate block"
+                      title={c.website}
+                    >
+                      {c.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
+                    </a>
+                  ) : null}
                 </TableCell>
 
                 <TableCell className="text-xs px-2 py-1.5 text-muted-foreground">
