@@ -62,6 +62,15 @@ function mapCompany(r: any): Company {
     spocContact: r.spoc_contact ?? [],
     doNotContact: r.do_not_contact ?? false,
     teamMembers: r.team_members ?? [],
+    priority: r.priority ?? 10,
+    nugget: r.nugget ?? "",
+    outreachType: r.outreach_type ?? "",
+    nextOutreach: r.next_outreach ?? "",
+    outreachNotes: r.outreach_notes ?? "",
+    meetingNotes: r.meeting_notes ?? "",
+    companyResearch: r.company_research ?? "",
+    portfolio: r.portfolio ?? "",
+    activeLeases: r.active_leases ?? "",
   };
 }
 
@@ -210,6 +219,15 @@ function toCompanyRow(c: Partial<Company>): Record<string, unknown> {
   if (c.spocContact !== undefined) m.spoc_contact = c.spocContact;
   if (c.doNotContact !== undefined) m.do_not_contact = c.doNotContact;
   if ((c as any).teamMembers !== undefined) m.team_members = (c as any).teamMembers;
+  if (c.priority !== undefined) m.priority = c.priority;
+  if (c.nugget !== undefined) m.nugget = c.nugget;
+  if (c.outreachType !== undefined) m.outreach_type = c.outreachType;
+  if (c.nextOutreach !== undefined) m.next_outreach = c.nextOutreach;
+  if (c.outreachNotes !== undefined) m.outreach_notes = c.outreachNotes;
+  if (c.meetingNotes !== undefined) m.meeting_notes = c.meetingNotes;
+  if (c.companyResearch !== undefined) m.company_research = c.companyResearch;
+  if (c.portfolio !== undefined) m.portfolio = c.portfolio;
+  if (c.activeLeases !== undefined) m.active_leases = c.activeLeases;
   return m;
 }
 

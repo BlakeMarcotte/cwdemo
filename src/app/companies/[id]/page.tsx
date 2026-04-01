@@ -46,6 +46,8 @@ const relationshipColor: Record<string, string> = {
   "Past Client": "bg-muted text-muted-foreground border-border",
   Vendor: "bg-blue-500/15 text-blue-400 border-blue-500/30",
   Competitor: "bg-red-500/15 text-red-400 border-red-500/30",
+  "Active Pursuit": "bg-orange-500/15 text-orange-400 border-orange-500/30",
+  "Passive Pursuit": "bg-cyan-500/15 text-cyan-400 border-cyan-500/30",
 };
 
 const stageColor: Record<string, string> = {
@@ -74,7 +76,7 @@ const companyFields: FieldDef[] = [
     key: "relationship",
     label: "Relationship",
     type: "multi-select",
-    options: ["Prospect", "Client", "Past Client", "Vendor", "Competitor"],
+    options: ["Prospect", "Client", "Past Client", "Vendor", "Competitor", "Active Pursuit", "Passive Pursuit"],
   },
   { key: "linkedIn", label: "LinkedIn", type: "text", placeholder: "https://linkedin.com/company/..." },
   {
