@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { TrendingUp, DollarSign, Plus, Pencil, X, Building2, MapPin } from "lucide-react";
+import { DollarSign, X, MapPin, Building2, Pencil } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,45 +14,70 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useData, genId } from "@/lib/data-context";
+import { useData } from "@/lib/data-context";
 import { EditDialog, type FieldDef } from "@/components/edit-dialog";
 import { TEAM_MEMBERS } from "@/lib/data";
-import type { OpportunityStage } from "@/lib/data";
+import type { LeaseStatus, Lease } from "@/lib/data";
 
-const stages: {
-  key: OpportunityStage;
-  label: string;
-  color: string;
-  headerBg: string;
-}[] = [
-  { key: "Lead", label: "Lead", color: "bg-muted text-muted-foreground", headerBg: "bg-muted/50 border-border" },
-  { key: "Qualified", label: "Qualified", color: "bg-blue-500/20 text-blue-300", headerBg: "bg-blue-500/15 border-blue-500/30" },
-  { key: "Proposal", label: "Proposal", color: "bg-amber-500/20 text-amber-300", headerBg: "bg-amber-500/15 border-amber-500/30" },
-  { key: "Negotiation", label: "Negotiation", color: "bg-purple-500/20 text-purple-300", headerBg: "bg-purple-500/15 border-purple-500/30" },
-  { key: "Closed Won", label: "Closed Won", color: "bg-green-500/20 text-green-300", headerBg: "bg-green-500/15 border-green-500/30" },
-  { key: "Closed Lost", label: "Closed Lost", color: "bg-red-500/20 text-red-300", headerBg: "bg-red-500/15 border-red-500/30" },
+// --- Kanban columns = lease statuses ---
+const columns: { key: LeaseStatus; label: string; headerBg: string }[] = [
+  { key: "Uncategorized", label: "Uncategorized", headerBg: "bg-muted/50 border-border" },
+  { key: "Monitor - Long Term", label: "Monitor - Long Term", headerBg: "bg-blue-500/15 border-blue-500/30" },
+  { key: "Hot Pursuit", label: "Hot Pursuit", headerBg: "bg-red-500/15 border-red-500/30" },
+  { key: "Active Pursuit", label: "Active Pursuit", headerBg: "bg-purple-500/15 border-purple-500/30" },
+  { key: "Meeting Scheduled", label: "Meeting Scheduled", headerBg: "bg-cyan-500/15 border-cyan-500/30" },
+  { key: "Monitor - Near Term", label: "Monitor - Near Term", headerBg: "bg-amber-500/15 border-amber-500/30" },
+  { key: "On Hold", label: "On Hold", headerBg: "bg-muted/50 border-border" },
+  { key: "Strategy", label: "Strategy", headerBg: "bg-indigo-500/15 border-indigo-500/30" },
+  { key: "Touring", label: "Touring", headerBg: "bg-teal-500/15 border-teal-500/30" },
+  { key: "Negotiations", label: "Negotiations", headerBg: "bg-orange-500/15 border-orange-500/30" },
+  { key: "In Lease", label: "In Lease", headerBg: "bg-emerald-500/15 border-emerald-500/30" },
+  { key: "Closed", label: "Closed", headerBg: "bg-green-500/15 border-green-500/30" },
+  { key: "Lost/Dead/Dud", label: "Lost/Dead/Dud", headerBg: "bg-muted/50 border-border" },
 ];
 
-const leaseStatusColor: Record<string, string> = {
-  "Active": "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  "Closely Monitoring": "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  "Long Term Monitoring": "bg-blue-500/15 text-blue-400 border-blue-500/30",
-  "Active Pursuit": "bg-purple-500/15 text-purple-400 border-purple-500/30",
-  "Inactive": "bg-muted text-muted-foreground border-border",
-};
-
-const opportunityFields: FieldDef[] = [
+const leaseEditFields: FieldDef[] = [
   { key: "company", label: "Company", type: "text" },
-  { key: "companyId", label: "Company ID", type: "text" },
-  { key: "contact", label: "Contact", type: "text" },
-  { key: "contactId", label: "Contact ID", type: "text" },
-  { key: "stage", label: "Stage", type: "select", options: ["Lead", "Qualified", "Proposal", "Negotiation", "Closed Won", "Closed Lost"] },
+  { key: "address", label: "Address", type: "text" },
+  { key: "suites", label: "Suite(s)", type: "text" },
   { key: "squareFootage", label: "Square Footage", type: "number" },
-  { key: "targetMoveDate", label: "Target Move Date", type: "date" },
-  { key: "estimatedCommission", label: "Estimated Commission", type: "number" },
-  { key: "notes", label: "Notes", type: "textarea" },
+  { key: "leaseCommencement", label: "Lease Commencement", type: "text", placeholder: "MM/DD/YYYY" },
+  { key: "leaseExpiration", label: "Lease Expiration", type: "text", placeholder: "MM/DD/YYYY" },
+  { key: "agreement", label: "Agreement", type: "select", options: ["New Lease", "Renewal", "2nd Amendment", "Expansion"] },
+  {
+    key: "status",
+    label: "Status",
+    type: "select",
+    options: columns.map((c) => c.key),
+  },
+  { key: "commissionRate", label: "Commission Rate ($/SF)", type: "number", placeholder: "1.25" },
+  { key: "commissionOverride", label: "Commission Override ($)", type: "number", placeholder: "Leave blank to auto-calc" },
   { key: "teamMembers", label: "Team", type: "multi-select", options: TEAM_MEMBERS },
 ];
+
+function calcLeaseTermMonths(commencement: string, expiration: string): number {
+  if (!commencement || !expiration) return 0;
+  const parse = (d: string) => {
+    const parts = d.split("/");
+    if (parts.length === 3) return new Date(`${parts[2]}-${parts[0].padStart(2, "0")}-${parts[1].padStart(2, "0")}`);
+    return new Date(d);
+  };
+  const start = parse(commencement);
+  const end = parse(expiration);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+  return Math.max((end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()), 0);
+}
+
+function calcCommission(l: Lease) {
+  const rate = l.commissionRate ?? 1.25;
+  const months = calcLeaseTermMonths(l.leaseCommencement, l.leaseExpiration);
+  const years = months / 12;
+  const calc = l.squareFootage * rate * years;
+  if (l.commissionOverride != null && l.commissionOverride > 0) {
+    return { value: l.commissionOverride, isOverride: true };
+  }
+  return { value: calc, isOverride: false };
+}
 
 function formatCurrency(n: number): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
@@ -61,23 +86,23 @@ function formatCurrency(n: number): string {
 }
 
 export default function OpportunitiesPage() {
-  const { opportunities, leases, companies, addOpportunity, updateOpportunity, updateCompany } = useData();
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [dragOverStage, setDragOverStage] = useState<OpportunityStage | null>(null);
+  const { leases, companies, contacts, updateLease, updateCompany } = useData();
 
-  const [addOpen, setAddOpen] = useState(false);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<LeaseStatus | null>(null);
+
   const [editOpen, setEditOpen] = useState(false);
   const [editValues, setEditValues] = useState<Record<string, unknown>>({});
   const [editId, setEditId] = useState<string | null>(null);
 
-  const allStageKeys = stages.map((s) => s.key);
-  const [activeStages, setActiveStages] = useState<Set<OpportunityStage>>(() => new Set(allStageKeys));
-  const [filterTeamMember, setFilterTeamMember] = useState("all");
-  const [filterMinCommission, setFilterMinCommission] = useState("");
+  // Filters
+  const allColKeys = columns.map((c) => c.key);
+  const [activeCols, setActiveCols] = useState<Set<LeaseStatus>>(() => new Set(allColKeys));
+  const [filterTeam, setFilterTeam] = useState("all");
   const [filterSearch, setFilterSearch] = useState("");
 
-  function toggleStage(key: OpportunityStage) {
-    setActiveStages((prev) => {
+  function toggleCol(key: LeaseStatus) {
+    setActiveCols((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -85,25 +110,46 @@ export default function OpportunitiesPage() {
     });
   }
 
-  const hasActiveFilters = activeStages.size !== allStageKeys.length || filterTeamMember !== "all" || filterMinCommission !== "" || filterSearch !== "";
+  const hasActiveFilters = activeCols.size !== allColKeys.length || filterTeam !== "all" || filterSearch !== "";
 
   function clearFilters() {
-    setActiveStages(new Set(allStageKeys));
-    setFilterTeamMember("all");
-    setFilterMinCommission("");
+    setActiveCols(new Set(allColKeys));
+    setFilterTeam("all");
     setFilterSearch("");
   }
 
-  const handleDrop = useCallback((targetStage: OpportunityStage) => {
+  const filtered = useMemo(() => {
+    return leases.filter((l) => {
+      if (!activeCols.has(l.status)) return false;
+      if (filterTeam !== "all" && !(l.teamMembers ?? []).includes(filterTeam)) return false;
+      if (filterSearch.trim()) {
+        const q = filterSearch.trim().toLowerCase();
+        if (
+          !l.company.toLowerCase().includes(q) &&
+          !l.address.toLowerCase().includes(q) &&
+          !(l.suites ?? "").toLowerCase().includes(q)
+        ) return false;
+      }
+      return true;
+    });
+  }, [leases, activeCols, filterTeam, filterSearch]);
+
+  // Pipeline stats
+  const totalCommission = filtered.reduce((sum, l) => sum + calcCommission(l).value, 0);
+  const activeLeases = filtered.filter((l) => !["Closed", "Lost/Dead/Dud", "On Hold"].includes(l.status)).length;
+  const closedLeases = filtered.filter((l) => l.status === "Closed").length;
+
+  // Drag handler
+  const handleDrop = useCallback((targetStatus: LeaseStatus) => {
     if (!dragId) return;
-    const opp = opportunities.find((o) => o.id === dragId);
-    if (!opp || opp.stage === targetStage) { setDragId(null); setDragOverStage(null); return; }
+    const lease = leases.find((l) => l.id === dragId);
+    if (!lease || lease.status === targetStatus) { setDragId(null); setDragOverCol(null); return; }
 
-    updateOpportunity(dragId, { stage: targetStage });
+    updateLease(dragId, { status: targetStatus });
 
-    // If dragged to Closed Won, update company relationship to Client
-    if (targetStage === "Closed Won") {
-      const company = companies.find((c) => c.id === opp.companyId);
+    // If dragged to Closed, update company to Client
+    if (targetStatus === "Closed") {
+      const company = companies.find((c) => c.id === lease.companyId);
       if (company && !company.relationship.includes("Client")) {
         updateCompany(company.id, {
           relationship: [...company.relationship.filter((r) => r !== "Prospect"), "Client"],
@@ -112,182 +158,171 @@ export default function OpportunitiesPage() {
     }
 
     setDragId(null);
-    setDragOverStage(null);
-  }, [dragId, opportunities, companies, updateOpportunity, updateCompany]);
+    setDragOverCol(null);
+  }, [dragId, leases, companies, updateLease, updateCompany]);
 
-  // Build a map of company leases for quick lookup
-  const leasesByCompany = useMemo(() => {
-    const map = new Map<string, typeof leases>();
-    for (const l of leases) {
-      if (!map.has(l.companyId)) map.set(l.companyId, []);
-      map.get(l.companyId)!.push(l);
+  // Contact lookup
+  const contactsByCompany = useMemo(() => {
+    const map = new Map<string, typeof contacts>();
+    for (const c of contacts) {
+      if (!map.has(c.companyId)) map.set(c.companyId, []);
+      map.get(c.companyId)!.push(c);
     }
     return map;
-  }, [leases]);
-
-  const filteredOpportunities = useMemo(() => {
-    return opportunities.filter((o) => {
-      if (!activeStages.has(o.stage)) return false;
-      if (filterTeamMember !== "all" && !(o.teamMembers ?? []).includes(filterTeamMember)) return false;
-      if (filterMinCommission !== "") {
-        const min = Number(filterMinCommission);
-        if (!isNaN(min) && o.estimatedCommission < min) return false;
-      }
-      if (filterSearch.trim() !== "") {
-        const q = filterSearch.trim().toLowerCase();
-        const companyLeases = leasesByCompany.get(o.companyId) ?? [];
-        const matchesAddress = companyLeases.some((l) => l.address.toLowerCase().includes(q));
-        if (!o.company.toLowerCase().includes(q) && !matchesAddress) return false;
-      }
-      return true;
-    });
-  }, [opportunities, activeStages, filterTeamMember, filterMinCommission, filterSearch, leasesByCompany]);
-
-  const pipelineValue = filteredOpportunities.filter((o) => o.stage !== "Closed Lost").reduce((sum, o) => sum + o.estimatedCommission, 0);
-  const closedWonValue = filteredOpportunities.filter((o) => o.stage === "Closed Won").reduce((sum, o) => sum + o.estimatedCommission, 0);
-  const activeDeals = filteredOpportunities.filter((o) => o.stage !== "Closed Won" && o.stage !== "Closed Lost").length;
+  }, [contacts]);
 
   return (
     <div className="flex flex-col gap-4 h-full">
-      {/* Pipeline summary */}
+      {/* Summary */}
       <div className="flex items-center gap-6 flex-wrap">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/15">
             <DollarSign size={16} className="text-green-400" />
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Pipeline Value{hasActiveFilters ? " (filtered)" : ""}</p>
-            <p className="text-sm font-semibold text-foreground">{formatCurrency(pipelineValue)}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15">
-            <TrendingUp size={16} className="text-emerald-400" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Closed Won</p>
-            <p className="text-sm font-semibold text-foreground">{formatCurrency(closedWonValue)}</p>
+            <p className="text-xs text-muted-foreground">Total Commission{hasActiveFilters ? " (filtered)" : ""}</p>
+            <p className="text-sm font-semibold text-foreground">{formatCurrency(totalCommission)}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/15">
-            <TrendingUp size={16} className="text-blue-400" />
+            <Building2 size={16} className="text-blue-400" />
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Active Deals</p>
-            <p className="text-sm font-semibold text-foreground">{activeDeals}</p>
+            <p className="text-xs text-muted-foreground">Active Leases</p>
+            <p className="text-sm font-semibold text-foreground">{activeLeases}</p>
           </div>
         </div>
-        <Button size="sm" className="ml-auto gap-1" onClick={() => setAddOpen(true)}>
-          <Plus size={14} />
-          Add Opportunity
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15">
+            <Building2 size={16} className="text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Closed</p>
+            <p className="text-sm font-semibold text-foreground">{closedLeases}</p>
+          </div>
+        </div>
+        <span className="text-xs text-muted-foreground ml-auto">
+          {filtered.length} of {leases.length} leases
+        </span>
       </div>
 
       {/* Filter bar */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center rounded-lg border border-input overflow-hidden">
-          {stages.map((s) => (
+          {columns.map((c) => (
             <button
-              key={s.key}
-              onClick={() => toggleStage(s.key)}
-              className={`px-2 py-1 text-[11px] transition-colors ${
-                activeStages.has(s.key)
+              key={c.key}
+              onClick={() => toggleCol(c.key)}
+              className={`px-1.5 py-1 text-[10px] transition-colors border-r border-input last:border-r-0 ${
+                activeCols.has(c.key)
                   ? "bg-foreground text-background font-medium"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               }`}
             >
-              {s.label}
+              {c.label}
             </button>
           ))}
         </div>
-        <Select value={filterTeamMember} onValueChange={(v) => setFilterTeamMember(v ?? "all")}>
-          <SelectTrigger className="text-xs h-7 min-w-[140px]">
-            <SelectValue placeholder="All Team Members" />
+        <Select value={filterTeam} onValueChange={(v) => setFilterTeam(v ?? "all")}>
+          <SelectTrigger className="text-xs h-7 min-w-[130px]">
+            <SelectValue placeholder="All Team" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Team Members</SelectItem>
+            <SelectItem value="all">All Team</SelectItem>
             {TEAM_MEMBERS.map((m) => (
               <SelectItem key={m} value={m}>{m}</SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <Input type="number" placeholder="Min Commission" value={filterMinCommission} onChange={(e) => setFilterMinCommission(e.target.value)} className="w-32 h-7 text-xs" />
         <Input type="text" placeholder="Search company or address..." value={filterSearch} onChange={(e) => setFilterSearch(e.target.value)} className="w-48 h-7 text-xs" />
         {hasActiveFilters && (
           <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1">
-            <X size={12} />
-            Clear
+            <X size={12} /> Clear
           </Button>
-        )}
-        {hasActiveFilters && (
-          <span className="text-[11px] text-muted-foreground ml-auto">
-            {filteredOpportunities.length} of {opportunities.length} opportunities
-          </span>
         )}
       </div>
 
-      {/* Kanban board */}
+      {/* Kanban */}
       <div className="flex-1 overflow-x-auto pb-2">
         <div
-          className="gap-3 h-full"
+          className="gap-2.5 h-full"
           style={{
             display: "grid",
-            gridTemplateColumns: `repeat(${stages.filter((s) => activeStages.has(s.key)).length}, minmax(220px, 1fr))`,
-            minWidth: `${Math.max(stages.filter((s) => activeStages.has(s.key)).length * 220, 600)}px`,
+            gridTemplateColumns: `repeat(${columns.filter((c) => activeCols.has(c.key)).length}, minmax(180px, 1fr))`,
+            minWidth: `${columns.filter((c) => activeCols.has(c.key)).length * 185}px`,
           }}
         >
-          {stages.filter((s) => activeStages.has(s.key)).map((stage) => {
-            const stageOpps = filteredOpportunities.filter((o) => o.stage === stage.key);
-            const stageTotal = stageOpps.reduce((sum, o) => sum + o.estimatedCommission, 0);
+          {columns.filter((c) => activeCols.has(c.key)).map((col) => {
+            const colLeases = filtered.filter((l) => l.status === col.key);
+            const colCommission = colLeases.reduce((sum, l) => sum + calcCommission(l).value, 0);
 
             return (
               <div
-                key={stage.key}
-                className={`flex flex-col gap-2 min-w-[220px] rounded-lg transition-colors ${dragOverStage === stage.key ? "bg-muted/30 ring-2 ring-ring/30" : ""}`}
-                onDragOver={(e) => { e.preventDefault(); setDragOverStage(stage.key); }}
-                onDragLeave={() => setDragOverStage(null)}
-                onDrop={(e) => { e.preventDefault(); handleDrop(stage.key); }}
+                key={col.key}
+                className={`flex flex-col gap-2 min-w-[180px] rounded-lg p-1 transition-colors ${dragOverCol === col.key ? "bg-muted/30 ring-2 ring-ring/30" : ""}`}
+                onDragOver={(e) => { e.preventDefault(); setDragOverCol(col.key); }}
+                onDragLeave={() => setDragOverCol(null)}
+                onDrop={(e) => { e.preventDefault(); handleDrop(col.key); }}
               >
-                <div className={`rounded-lg border px-3 py-2 ${stage.headerBg}`}>
+                {/* Column header */}
+                <div className={`rounded-lg border px-2.5 py-1.5 ${col.headerBg}`}>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-foreground">{stage.label}</span>
-                    <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">{stageOpps.length}</Badge>
+                    <span className="text-[11px] font-semibold text-foreground truncate">{col.label}</span>
+                    <Badge variant="secondary" className="h-4 px-1.5 text-[10px] shrink-0">{colLeases.length}</Badge>
                   </div>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground">{formatCurrency(stageTotal)}</p>
+                  {colCommission > 0 && (
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">{formatCurrency(colCommission)}</p>
+                  )}
                 </div>
 
-                <div className="flex flex-col gap-2 flex-1 overflow-y-auto pr-0.5">
-                  {stageOpps.map((opp) => {
-                    const companyLeases = leasesByCompany.get(opp.companyId) ?? [];
+                {/* Cards */}
+                <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
+                  {colLeases.map((lease) => {
+                    const comm = calcCommission(lease);
+                    const termMonths = calcLeaseTermMonths(lease.leaseCommencement, lease.leaseExpiration);
+                    const companyContacts = contactsByCompany.get(lease.companyId) ?? [];
 
                     return (
                       <Card
-                        key={opp.id}
-                        className={`shrink-0 cursor-grab active:cursor-grabbing transition-opacity ${dragId === opp.id ? "opacity-40" : ""}`}
+                        key={lease.id}
+                        className={`shrink-0 cursor-grab active:cursor-grabbing transition-opacity ${dragId === lease.id ? "opacity-40" : ""}`}
                         draggable
-                        onDragStart={() => setDragId(opp.id)}
-                        onDragEnd={() => { setDragId(null); setDragOverStage(null); }}
+                        onDragStart={() => setDragId(lease.id)}
+                        onDragEnd={() => { setDragId(null); setDragOverCol(null); }}
                       >
-                        <CardContent className="p-3 space-y-2">
-                          {/* Company + edit */}
+                        <CardContent className="p-2.5 space-y-1.5">
+                          {/* Address + edit */}
                           <div className="flex items-start justify-between gap-1">
-                            <Link
-                              href={`/companies/${opp.companyId}`}
-                              className="text-xs font-semibold text-cw-green hover:underline leading-tight"
-                            >
-                              {opp.company}
-                            </Link>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1">
+                                <MapPin size={10} className="text-muted-foreground shrink-0" />
+                                <Link
+                                  href={`/buildings/${lease.buildingId}`}
+                                  className="text-[11px] font-semibold text-cw-blue hover:underline truncate"
+                                >
+                                  {lease.address}
+                                </Link>
+                              </div>
+                              {lease.suites && (
+                                <p className="text-[10px] text-muted-foreground ml-3.5">{lease.suites}</p>
+                              )}
+                            </div>
                             <button
                               onClick={() => {
-                                setEditId(opp.id);
+                                setEditId(lease.id);
                                 setEditValues({
-                                  company: opp.company, companyId: opp.companyId,
-                                  contact: opp.contact, contactId: opp.contactId,
-                                  stage: opp.stage, squareFootage: opp.squareFootage,
-                                  targetMoveDate: opp.targetMoveDate,
-                                  estimatedCommission: opp.estimatedCommission,
-                                  notes: opp.notes, teamMembers: opp.teamMembers ?? [],
+                                  company: lease.company,
+                                  address: lease.address,
+                                  suites: lease.suites,
+                                  squareFootage: lease.squareFootage,
+                                  leaseCommencement: lease.leaseCommencement,
+                                  leaseExpiration: lease.leaseExpiration,
+                                  agreement: lease.agreement,
+                                  status: lease.status,
+                                  commissionRate: lease.commissionRate ?? 1.25,
+                                  commissionOverride: lease.commissionOverride ?? "",
+                                  teamMembers: lease.teamMembers ?? [],
                                 });
                                 setEditOpen(true);
                               }}
@@ -297,58 +332,55 @@ export default function OpportunitiesPage() {
                             </button>
                           </div>
 
-                          {/* Lease addresses */}
-                          {companyLeases.length > 0 ? (
-                            <div className="space-y-1.5">
-                              {companyLeases.map((lease) => (
-                                <div key={lease.id} className="rounded-md border border-border/50 bg-muted/20 px-2 py-1.5">
-                                  <div className="flex items-center gap-1">
-                                    <MapPin size={10} className="text-muted-foreground shrink-0" />
-                                    <Link
-                                      href={`/buildings/${lease.buildingId}`}
-                                      className="text-[11px] text-cw-blue hover:underline truncate"
-                                    >
-                                      {lease.address}
-                                    </Link>
-                                  </div>
-                                  <div className="flex items-center justify-between mt-1 gap-2">
-                                    <span className="text-[10px] text-muted-foreground">{lease.suites}</span>
-                                    <span className="text-[10px] text-muted-foreground">{lease.squareFootage.toLocaleString()} SF</span>
-                                  </div>
-                                  <div className="flex items-center justify-between mt-0.5 gap-2">
-                                    <span className="text-[10px] text-muted-foreground">Exp: {lease.leaseExpiration || "—"}</span>
-                                    <Badge variant="outline" className={`text-[8px] px-1 py-0 h-3.5 ${leaseStatusColor[lease.status] ?? leaseStatusColor["Active"]}`}>
-                                      {lease.status}
-                                    </Badge>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                              <Building2 size={10} />
-                              No leases on file
-                            </div>
-                          )}
+                          {/* Company */}
+                          <Link
+                            href={`/companies/${lease.companyId}`}
+                            className="text-[11px] text-cw-green hover:underline block truncate"
+                          >
+                            {lease.company}
+                          </Link>
 
-                          {/* Commission + SF + target */}
-                          <div className="flex items-center justify-between gap-1 pt-0.5">
-                            <span className="text-[10px] text-muted-foreground">{opp.squareFootage.toLocaleString()} SF req</span>
-                            <span className="text-[10px] font-medium text-foreground">{formatCurrency(opp.estimatedCommission)}</span>
+                          {/* Key metrics */}
+                          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px]">
+                            <div>
+                              <span className="text-muted-foreground">SF</span>
+                              <p className="font-medium">{lease.squareFootage.toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Commission</span>
+                              <p className={`font-medium ${comm.isOverride ? "text-amber-400" : "text-emerald-400"}`}>
+                                {formatCurrency(comm.value)}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Expiration</span>
+                              <p className="font-medium">{lease.leaseExpiration || "—"}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Term</span>
+                              <p className="font-medium">{(termMonths / 12).toFixed(1)}yr</p>
+                            </div>
                           </div>
-                          <p className="text-[10px] text-muted-foreground">Target: {opp.targetMoveDate}</p>
 
-                          {/* Notes */}
-                          {opp.notes && (
-                            <p className="text-[10px] text-muted-foreground/70 leading-tight line-clamp-3">
-                              {opp.notes}
-                            </p>
+                          {/* Agreement */}
+                          <p className="text-[10px] text-muted-foreground">{lease.agreement}</p>
+
+                          {/* Top contact */}
+                          {companyContacts.length > 0 && (
+                            <div className="text-[10px] text-muted-foreground border-t border-border/50 pt-1 mt-1">
+                              <Link href={`/contacts/${companyContacts[0].id}`} className="text-cw-green hover:underline">
+                                {companyContacts[0].name}
+                              </Link>
+                              {companyContacts.length > 1 && (
+                                <span className="text-muted-foreground/60"> +{companyContacts.length - 1} more</span>
+                              )}
+                            </div>
                           )}
 
                           {/* Team */}
-                          {(opp.teamMembers ?? []).length > 0 && (
-                            <div className="flex flex-wrap gap-1 pt-0.5">
-                              {opp.teamMembers.map((m) => (
+                          {(lease.teamMembers ?? []).length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {lease.teamMembers.map((m) => (
                                 <span key={m} className="inline-flex items-center rounded-full bg-indigo-500/15 px-1.5 py-0 text-[9px] text-indigo-400">
                                   {m.split(" ")[0]}
                                 </span>
@@ -359,9 +391,9 @@ export default function OpportunitiesPage() {
                       </Card>
                     );
                   })}
-                  {stageOpps.length === 0 && (
-                    <div className="flex-1 flex items-center justify-center rounded-lg border border-dashed border-border/50 p-4">
-                      <p className="text-[10px] text-muted-foreground">No opportunities</p>
+                  {colLeases.length === 0 && (
+                    <div className="flex-1 flex items-center justify-center rounded-lg border border-dashed border-border/50 p-3 min-h-[60px]">
+                      <p className="text-[10px] text-muted-foreground">Drop lease here</p>
                     </div>
                   )}
                 </div>
@@ -371,8 +403,25 @@ export default function OpportunitiesPage() {
         </div>
       </div>
 
-      <EditDialog open={addOpen} onOpenChange={setAddOpen} title="Add Opportunity" fields={opportunityFields} values={{ teamMembers: [] }} onSave={(formValues) => { addOpportunity({ ...formValues, id: genId("o") } as any); }} />
-      <EditDialog open={editOpen} onOpenChange={setEditOpen} title="Edit Opportunity" fields={opportunityFields} values={editValues} onSave={(formValues) => { if (editId) updateOpportunity(editId, formValues as any); }} />
+      {/* Edit lease dialog */}
+      <EditDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        title="Edit Lease"
+        fields={leaseEditFields}
+        values={editValues}
+        onSave={(formValues) => {
+          if (editId) {
+            updateLease(editId, {
+              ...formValues,
+              squareFootage: Number(formValues.squareFootage ?? 0),
+              commissionRate: formValues.commissionRate ? Number(formValues.commissionRate) : 1.25,
+              commissionOverride: formValues.commissionOverride ? Number(formValues.commissionOverride) : null,
+              teamMembers: Array.isArray(formValues.teamMembers) ? formValues.teamMembers as string[] : [],
+            } as Partial<Lease>);
+          }
+        }}
+      />
     </div>
   );
 }

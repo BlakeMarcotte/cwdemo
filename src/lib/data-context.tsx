@@ -125,6 +125,8 @@ function mapLease(r: any): Lease {
     subleaseList: r.sublease_list ?? false,
     teamMembers: r.team_members ?? [],
     status: r.status ?? "Active",
+    commissionRate: r.commission_rate != null ? Number(r.commission_rate) : 1.25,
+    commissionOverride: r.commission_override != null ? Number(r.commission_override) : null,
   };
 }
 
@@ -270,6 +272,8 @@ function toLeaseRow(l: Partial<Lease>): Record<string, unknown> {
   if (l.subleaseList !== undefined) m.sublease_list = l.subleaseList;
   if ((l as any).teamMembers !== undefined) m.team_members = (l as any).teamMembers;
   if (l.status !== undefined) m.status = l.status;
+  if (l.commissionRate !== undefined) m.commission_rate = l.commissionRate;
+  if (l.commissionOverride !== undefined) m.commission_override = l.commissionOverride;
   return m;
 }
 

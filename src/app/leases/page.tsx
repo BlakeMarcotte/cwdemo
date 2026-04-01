@@ -20,14 +20,26 @@ import { Badge } from "@/components/ui/badge";
 
 type SortKey = keyof Lease;
 
-const LEASE_STATUSES = ["Active", "Closely Monitoring", "Long Term Monitoring", "Active Pursuit", "Inactive"] as const;
+const LEASE_STATUSES = [
+  "Uncategorized", "Monitor - Long Term", "Hot Pursuit", "Active Pursuit",
+  "Meeting Scheduled", "Monitor - Near Term", "On Hold", "Strategy",
+  "Touring", "Negotiations", "In Lease", "Closed", "Lost/Dead/Dud",
+] as const;
 
 const leaseStatusColor: Record<string, string> = {
-  "Active": "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  "Closely Monitoring": "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  "Long Term Monitoring": "bg-blue-500/15 text-blue-400 border-blue-500/30",
+  "Uncategorized": "bg-muted text-muted-foreground border-border",
+  "Monitor - Long Term": "bg-blue-500/15 text-blue-400 border-blue-500/30",
+  "Hot Pursuit": "bg-red-500/15 text-red-400 border-red-500/30",
   "Active Pursuit": "bg-purple-500/15 text-purple-400 border-purple-500/30",
-  "Inactive": "bg-muted text-muted-foreground border-border",
+  "Meeting Scheduled": "bg-cyan-500/15 text-cyan-400 border-cyan-500/30",
+  "Monitor - Near Term": "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  "On Hold": "bg-muted text-muted-foreground border-border",
+  "Strategy": "bg-indigo-500/15 text-indigo-400 border-indigo-500/30",
+  "Touring": "bg-teal-500/15 text-teal-400 border-teal-500/30",
+  "Negotiations": "bg-orange-500/15 text-orange-400 border-orange-500/30",
+  "In Lease": "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  "Closed": "bg-green-500/15 text-green-400 border-green-500/30",
+  "Lost/Dead/Dud": "bg-muted text-muted-foreground border-border",
 };
 
 const leaseFields: FieldDef[] = [
@@ -74,7 +86,36 @@ const leaseFields: FieldDef[] = [
   { key: "subleaseList", label: "Sublease List", type: "checkbox" },
   { key: "teamMembers", label: "Team", type: "multi-select", options: TEAM_MEMBERS },
   { key: "status", label: "Status", type: "select", options: [...LEASE_STATUSES] },
+  { key: "commissionRate", label: "Commission Rate ($/SF)", type: "number", placeholder: "1.25" },
+  { key: "commissionOverride", label: "Commission Override ($)", type: "number", placeholder: "Leave blank to auto-calculate" },
 ];
+
+function calcLeaseTermMonths(commencement: string, expiration: string): number {
+  if (!commencement || !expiration) return 0;
+  // Parse MM/DD/YYYY or YYYY-MM-DD
+  const parse = (d: string) => {
+    const parts = d.split("/");
+    if (parts.length === 3) return new Date(`${parts[2]}-${parts[0].padStart(2, "0")}-${parts[1].padStart(2, "0")}`);
+    return new Date(d);
+  };
+  const start = parse(commencement);
+  const end = parse(expiration);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+  const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  return Math.max(months, 0);
+}
+
+function calcCommission(lease: Lease): { calculated: number; termMonths: number; termYears: number; rate: number; isOverride: boolean } {
+  const rate = lease.commissionRate ?? 1.25;
+  const termMonths = calcLeaseTermMonths(lease.leaseCommencement, lease.leaseExpiration);
+  const termYears = termMonths / 12;
+  const calculated = lease.squareFootage * rate * termYears;
+
+  if (lease.commissionOverride != null && lease.commissionOverride > 0) {
+    return { calculated: lease.commissionOverride, termMonths, termYears, rate, isOverride: true };
+  }
+  return { calculated, termMonths, termYears, rate, isOverride: false };
+}
 
 export default function LeasesPage() {
   const { leases, addLease } = useData();
@@ -234,6 +275,8 @@ export default function LeasesPage() {
           tenantReps: "",
           teamMembers: [],
           status: "Active",
+          commissionRate: 1.25,
+          commissionOverride: "",
         }}
         onSave={(values) => {
           const tenantBrokerage =
@@ -391,6 +434,8 @@ export default function LeasesPage() {
               <SortHeader label="Lease Expiration" field="leaseExpiration" />
               <SortHeader label="Agreement" field="agreement" />
               <TableHead>Tenant Brokerage</TableHead>
+              <TableHead className="text-xs text-right">Commission</TableHead>
+              <TableHead className="text-xs text-right">Term</TableHead>
               <SortHeader label="Status" field="status" />
               <SortHeader label="Active" field="activeOpportunity" />
               <SortHeader label="Comp" field="comp" />
@@ -449,6 +494,25 @@ export default function LeasesPage() {
                 <TableCell className="text-xs text-muted-foreground">
                   {l.tenantBrokerage.join(", ")}
                 </TableCell>
+                {(() => {
+                  const c = calcCommission(l);
+                  return (
+                    <>
+                      <TableCell className="text-xs text-right">
+                        <span className={`font-medium ${c.isOverride ? "text-amber-400" : "text-emerald-400"}`}>
+                          ${c.calculated.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </span>
+                        <div className="text-[9px] text-muted-foreground">
+                          ${(l.commissionRate ?? 1.25).toFixed(2)}/SF
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs text-right text-muted-foreground">
+                        {c.termYears.toFixed(1)}yr
+                        <div className="text-[9px]">{c.termMonths}mo</div>
+                      </TableCell>
+                    </>
+                  );
+                })()}
                 <TableCell className="text-xs">
                   <Badge
                     variant="outline"
