@@ -2,9 +2,18 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { ArrowUpDown, Plus } from "lucide-react";
+import {
+  ArrowUpDown,
+  Plus,
+  Pencil,
+  Trash2,
+  CheckCircle2,
+  Circle,
+  Clock,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -16,7 +25,11 @@ import {
 import { useData, genId } from "@/lib/data-context";
 import { EditDialog, type FieldDef } from "@/components/edit-dialog";
 import { TEAM_MEMBERS } from "@/lib/data";
-import type { ActivityType } from "@/lib/data";
+import type { ActivityType, TaskStatus } from "@/lib/data";
+
+// ---------------------------------------------------------------------------
+// Styling maps
+// ---------------------------------------------------------------------------
 
 const typeBadge: Record<ActivityType, string> = {
   Call: "bg-blue-500/20 text-blue-300",
@@ -30,36 +43,81 @@ const priorityBadge: Record<string, string> = {
   Low: "bg-green-500/20 text-green-300",
 };
 
+const statusIcon: Record<TaskStatus, typeof Circle> = {
+  "To Do": Circle,
+  "In Progress": Clock,
+  Done: CheckCircle2,
+};
+
+const statusColor: Record<TaskStatus, string> = {
+  "To Do": "text-muted-foreground",
+  "In Progress": "text-blue-400",
+  Done: "text-green-400",
+};
+
+// ---------------------------------------------------------------------------
+// Sort / filter types
+// ---------------------------------------------------------------------------
+
 type SortKey =
+  | "status"
   | "type"
   | "date"
   | "time"
   | "priority"
   | "contact"
   | "company"
-  | "regarding";
+  | "regarding"
+  | "dueDate";
 type SortDir = "asc" | "desc";
+type FilterType = "All" | ActivityType;
+type FilterStatus = "All" | TaskStatus;
 
 function parseDate(d: string): number {
-  // Handle MM/DD/YYYY format
+  if (!d) return 0;
   const parts = d.split("/");
   if (parts.length === 3) {
-    return new Date(`${parts[2]}-${parts[0].padStart(2, "0")}-${parts[1].padStart(2, "0")}`).getTime();
+    return new Date(
+      `${parts[2]}-${parts[0].padStart(2, "0")}-${parts[1].padStart(2, "0")}`
+    ).getTime();
   }
   return new Date(d).getTime();
 }
 
-const priorityOrder: Record<string, number> = {
-  High: 0,
-  Medium: 1,
-  Low: 2,
+const priorityOrder: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
+const statusOrder: Record<string, number> = {
+  "In Progress": 0,
+  "To Do": 1,
+  Done: 2,
 };
 
+// ---------------------------------------------------------------------------
+// Field definitions for Add / Edit dialog
+// ---------------------------------------------------------------------------
+
 const activityFields: FieldDef[] = [
-  { key: "type", label: "Type", type: "select", options: ["Call", "Update", "Meeting"] },
+  {
+    key: "type",
+    label: "Type",
+    type: "select",
+    options: ["Call", "Update", "Meeting"],
+  },
+  {
+    key: "status",
+    label: "Status",
+    type: "select",
+    options: ["To Do", "In Progress", "Done"],
+  },
+  {
+    key: "priority",
+    label: "Priority",
+    type: "select",
+    options: ["High", "Medium", "Low"],
+  },
   { key: "date", label: "Date", type: "date" },
   { key: "time", label: "Time", type: "text", placeholder: "HH:MM" },
-  { key: "priority", label: "Priority", type: "select", options: ["High", "Medium", "Low"] },
+  { key: "dueDate", label: "Due Date", type: "date" },
+  { key: "regarding", label: "Regarding", type: "textarea" },
   { key: "contact", label: "Contact", type: "text" },
   { key: "contactId", label: "Contact ID", type: "text" },
   { key: "company", label: "Company", type: "text" },
@@ -68,38 +126,69 @@ const activityFields: FieldDef[] = [
   { key: "ext", label: "Ext", type: "number" },
   { key: "mobilePhone", label: "Mobile Phone", type: "text" },
   { key: "email", label: "Email", type: "text" },
-  { key: "regarding", label: "Regarding", type: "textarea" },
   { key: "addDate", label: "Add Date", type: "date" },
-  { key: "teamMembers", label: "Team", type: "multi-select", options: TEAM_MEMBERS },
+  {
+    key: "teamMembers",
+    label: "Team",
+    type: "multi-select",
+    options: TEAM_MEMBERS,
+  },
 ];
 
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export default function ActivitiesPage() {
-  const { activities, addActivity } = useData();
+  const { activities, addActivity, updateActivity, deleteActivity } = useData();
 
   const [addOpen, setAddOpen] = useState(false);
-  const [filter, setFilter] = useState<"All" | ActivityType>("All");
-  const [sortKey, setSortKey] = useState<SortKey>("date");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editValues, setEditValues] = useState<Record<string, unknown>>({});
+  const [editId, setEditId] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<FilterType>("All");
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("All");
+  const [sortKey, setSortKey] = useState<SortKey>("status");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(key);
-      setSortDir("desc");
+      setSortDir(key === "date" || key === "dueDate" ? "desc" : "asc");
     }
   }
 
+  // Derived counts
+  const todoCount = activities.filter((a) => a.status === "To Do").length;
+  const inProgressCount = activities.filter(
+    (a) => a.status === "In Progress"
+  ).length;
+  const doneCount = activities.filter((a) => a.status === "Done").length;
+
   const filtered = useMemo(() => {
     let list = [...activities];
-    if (filter !== "All") {
-      list = list.filter((a) => a.type === filter);
-    }
+    if (filterType !== "All") list = list.filter((a) => a.type === filterType);
+    if (filterStatus !== "All")
+      list = list.filter((a) => a.status === filterStatus);
+
     list.sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
+        case "status":
+          cmp =
+            (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9);
+          if (cmp === 0)
+            cmp =
+              (priorityOrder[a.priority] ?? 9) -
+              (priorityOrder[b.priority] ?? 9);
+          break;
         case "date":
           cmp = parseDate(a.date) - parseDate(b.date);
+          break;
+        case "dueDate":
+          cmp = parseDate(a.dueDate) - parseDate(b.dueDate);
           break;
         case "time":
           cmp = a.time.localeCompare(b.time);
@@ -123,13 +212,44 @@ export default function ActivitiesPage() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return list;
-  }, [activities, filter, sortKey, sortDir]);
+  }, [activities, filterType, filterStatus, sortKey, sortDir]);
 
-  const filters: { label: string; value: "All" | ActivityType }[] = [
-    { label: "All", value: "All" },
+  function openEdit(a: (typeof activities)[number]) {
+    setEditId(a.id);
+    setEditValues({
+      type: a.type,
+      status: a.status,
+      priority: a.priority,
+      date: a.date,
+      time: a.time,
+      dueDate: a.dueDate,
+      regarding: a.regarding,
+      contact: a.contact,
+      contactId: a.contactId,
+      company: a.company,
+      companyId: a.companyId,
+      officePhone: a.officePhone,
+      ext: a.ext ?? 0,
+      mobilePhone: a.mobilePhone,
+      email: a.email,
+      addDate: a.addDate,
+      teamMembers: a.teamMembers ?? [],
+    });
+    setEditOpen(true);
+  }
+
+  const typeFilters: { label: string; value: FilterType }[] = [
+    { label: "All Types", value: "All" },
     { label: "Calls", value: "Call" },
     { label: "Meetings", value: "Meeting" },
     { label: "Updates", value: "Update" },
+  ];
+
+  const statusFilters: { label: string; value: FilterStatus }[] = [
+    { label: "All", value: "All" },
+    { label: "To Do", value: "To Do" },
+    { label: "In Progress", value: "In Progress" },
+    { label: "Done", value: "Done" },
   ];
 
   function SortButton({
@@ -159,14 +279,66 @@ export default function ActivitiesPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Filter bar */}
-      <div className="flex items-center gap-2">
-        {filters.map((f) => (
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card size="sm">
+          <CardContent className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+              <Circle size={18} className="text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-[11px] text-muted-foreground">To Do</p>
+              <p className="text-lg font-bold text-foreground">{todoCount}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card size="sm">
+          <CardContent className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/15">
+              <Clock size={18} className="text-blue-400" />
+            </div>
+            <div>
+              <p className="text-[11px] text-muted-foreground">In Progress</p>
+              <p className="text-lg font-bold text-foreground">
+                {inProgressCount}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card size="sm">
+          <CardContent className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-500/15">
+              <CheckCircle2 size={18} className="text-green-400" />
+            </div>
+            <div>
+              <p className="text-[11px] text-muted-foreground">Done</p>
+              <p className="text-lg font-bold text-foreground">{doneCount}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filter bars */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Status filter */}
+        {statusFilters.map((f) => (
           <Button
             key={f.value}
-            variant={filter === f.value ? "default" : "outline"}
+            variant={filterStatus === f.value ? "default" : "outline"}
             size="sm"
-            onClick={() => setFilter(f.value)}
+            onClick={() => setFilterStatus(f.value)}
+          >
+            {f.label}
+          </Button>
+        ))}
+        <span className="w-px h-5 bg-border mx-1" />
+        {/* Type filter */}
+        {typeFilters.map((f) => (
+          <Button
+            key={f.value}
+            variant={filterType === f.value ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilterType(f.value)}
           >
             {f.label}
           </Button>
@@ -185,97 +357,173 @@ export default function ActivitiesPage() {
       </div>
 
       {/* Table */}
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[70px]">
-              <SortButton label="Type" field="type" />
-            </TableHead>
-            <TableHead className="w-[90px]">
-              <SortButton label="Date" field="date" />
-            </TableHead>
-            <TableHead className="w-[75px]">
-              <SortButton label="Time" field="time" />
-            </TableHead>
-            <TableHead className="w-[75px]">
-              <SortButton label="Priority" field="priority" />
-            </TableHead>
-            <TableHead>
-              <SortButton label="Contact" field="contact" />
-            </TableHead>
-            <TableHead>
-              <SortButton label="Company" field="company" />
-            </TableHead>
-            <TableHead className="min-w-[250px]">
-              <SortButton label="Regarding" field="regarding" />
-            </TableHead>
-            <TableHead className="w-[180px]">Email</TableHead>
-            <TableHead>Team</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filtered.map((activity) => (
-            <TableRow key={activity.id}>
-              <TableCell className="text-xs">
-                <Badge
-                  className={`${typeBadge[activity.type]} border-0 text-[10px] px-1.5`}
-                >
-                  {activity.type}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground">
-                {activity.date}
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground">
-                {activity.time}
-              </TableCell>
-              <TableCell className="text-xs">
-                <Badge
-                  className={`${priorityBadge[activity.priority]} border-0 text-[10px] px-1.5`}
-                >
-                  {activity.priority}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-xs">
-                <Link
-                  href={`/contacts/${activity.contactId}`}
-                  className="text-cw-green hover:underline"
-                >
-                  {activity.contact}
-                </Link>
-              </TableCell>
-              <TableCell className="text-xs">
-                <Link
-                  href={`/companies/${activity.companyId}`}
-                  className="text-cw-green hover:underline"
-                >
-                  {activity.company}
-                </Link>
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground max-w-[350px] truncate">
-                {activity.regarding}
-              </TableCell>
-              <TableCell className="text-xs">
-                <a
-                  href={`mailto:${activity.email}`}
-                  className="text-cw-blue hover:underline"
-                >
-                  {activity.email}
-                </a>
-              </TableCell>
-              <TableCell>
-                <div className="flex gap-1 flex-wrap">
-                  {(activity.teamMembers ?? []).map((m) => (
-                    <span key={m} className="inline-flex items-center rounded-full bg-indigo-500/15 px-1.5 py-0 text-[10px] text-indigo-400">
-                      {m.split(" ")[0]}
-                    </span>
-                  ))}
-                </div>
-              </TableCell>
+      <div className="rounded-lg border border-border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[40px]">
+                <SortButton label="" field="status" />
+              </TableHead>
+              <TableHead className="w-[70px]">
+                <SortButton label="Type" field="type" />
+              </TableHead>
+              <TableHead className="w-[75px]">
+                <SortButton label="Priority" field="priority" />
+              </TableHead>
+              <TableHead className="w-[90px]">
+                <SortButton label="Date" field="date" />
+              </TableHead>
+              <TableHead className="w-[90px]">
+                <SortButton label="Due" field="dueDate" />
+              </TableHead>
+              <TableHead>
+                <SortButton label="Contact" field="contact" />
+              </TableHead>
+              <TableHead>
+                <SortButton label="Company" field="company" />
+              </TableHead>
+              <TableHead className="min-w-[250px]">
+                <SortButton label="Regarding" field="regarding" />
+              </TableHead>
+              <TableHead className="w-[130px]">Office Phone</TableHead>
+              <TableHead className="w-[130px]">Mobile</TableHead>
+              <TableHead className="w-[170px]">Email</TableHead>
+              <TableHead>Team</TableHead>
+              <TableHead className="w-[60px]"></TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {filtered.map((activity) => {
+              const StatusIcon = statusIcon[activity.status] ?? Circle;
+              return (
+                <TableRow key={activity.id}>
+                  {/* Status icon — click to cycle */}
+                  <TableCell>
+                    <button
+                      className="p-0.5"
+                      onClick={() => {
+                        const next: Record<TaskStatus, TaskStatus> = {
+                          "To Do": "In Progress",
+                          "In Progress": "Done",
+                          Done: "To Do",
+                        };
+                        updateActivity(activity.id, {
+                          status: next[activity.status],
+                        });
+                      }}
+                    >
+                      <StatusIcon
+                        size={16}
+                        className={statusColor[activity.status]}
+                      />
+                    </button>
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    <Badge
+                      className={`${typeBadge[activity.type]} border-0 text-[10px] px-1.5`}
+                    >
+                      {activity.type}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    <Badge
+                      className={`${priorityBadge[activity.priority]} border-0 text-[10px] px-1.5`}
+                    >
+                      {activity.priority}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {activity.date}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {activity.dueDate || "\u2014"}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {activity.contactId ? (
+                      <Link
+                        href={`/contacts/${activity.contactId}`}
+                        className="text-cw-green hover:underline"
+                      >
+                        {activity.contact}
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {activity.contact || "\u2014"}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {activity.companyId ? (
+                      <Link
+                        href={`/companies/${activity.companyId}`}
+                        className="text-cw-green hover:underline"
+                      >
+                        {activity.company}
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {activity.company || "\u2014"}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell
+                    className={`text-xs max-w-[350px] truncate ${activity.status === "Done" ? "text-muted-foreground/50 line-through" : "text-muted-foreground"}`}
+                  >
+                    {activity.regarding}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                    {activity.officePhone}
+                    {activity.ext ? ` x${activity.ext}` : ""}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                    {activity.mobilePhone}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {activity.email ? (
+                      <a
+                        href={`mailto:${activity.email}`}
+                        className="text-cw-blue hover:underline"
+                      >
+                        {activity.email}
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground">{"\u2014"}</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1 flex-wrap">
+                      {(activity.teamMembers ?? []).map((m) => (
+                        <span
+                          key={m}
+                          className="inline-flex items-center rounded-full bg-indigo-500/15 px-1.5 py-0 text-[10px] text-indigo-400"
+                        >
+                          {m.split(" ")[0]}
+                        </span>
+                      ))}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openEdit(activity)}
+                        className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                      <button
+                        onClick={() => deleteActivity(activity.id)}
+                        className="rounded p-1 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
 
       {/* Add Activity Dialog */}
       <EditDialog
@@ -283,9 +531,31 @@ export default function ActivitiesPage() {
         onOpenChange={setAddOpen}
         title="Add Activity"
         fields={activityFields}
-        values={{ teamMembers: [] }}
+        values={{ status: "To Do", priority: "Medium", teamMembers: [] }}
         onSave={(formValues) => {
-          addActivity({ ...formValues, id: genId("a") } as any);
+          addActivity({
+            ...formValues,
+            id: genId("a"),
+            addDate:
+              formValues.addDate ||
+              new Date().toLocaleDateString("en-US", {
+                month: "2-digit",
+                day: "2-digit",
+                year: "numeric",
+              }),
+          } as any);
+        }}
+      />
+
+      {/* Edit Activity Dialog */}
+      <EditDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        title="Edit Activity"
+        fields={activityFields}
+        values={editValues}
+        onSave={(formValues) => {
+          if (editId) updateActivity(editId, formValues as any);
         }}
       />
     </div>

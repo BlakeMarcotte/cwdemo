@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Contact, Task } from "@/lib/data";
+import type { Contact } from "@/lib/data";
 import { TEAM_MEMBERS } from "@/lib/data";
 
 type SortKey = keyof Contact;
@@ -53,40 +53,23 @@ const contactFields: FieldDef[] = [
   { key: "teamMembers", label: "Team", type: "multi-select", options: TEAM_MEMBERS },
 ];
 
-const taskFields: FieldDef[] = [
-  { key: "title", label: "Title", type: "text", placeholder: "Task title" },
-  { key: "description", label: "Description", type: "textarea" },
-  {
-    key: "status",
-    label: "Status",
-    type: "select",
-    options: ["To Do", "In Progress", "Done"],
-  },
-  {
-    key: "priority",
-    label: "Priority",
-    type: "select",
-    options: ["High", "Medium", "Low"],
-  },
+const quickActivityFields: FieldDef[] = [
+  { key: "regarding", label: "Regarding", type: "textarea" },
+  { key: "type", label: "Type", type: "select", options: ["Call", "Update", "Meeting"] },
+  { key: "status", label: "Status", type: "select", options: ["To Do", "In Progress", "Done"] },
+  { key: "priority", label: "Priority", type: "select", options: ["High", "Medium", "Low"] },
   { key: "dueDate", label: "Due Date", type: "date" },
-  {
-    key: "teamMembers",
-    label: "Team",
-    type: "multi-select",
-    options: TEAM_MEMBERS,
-  },
-  { key: "company", label: "Company", type: "text", placeholder: "Optional" },
-  { key: "companyId", label: "Company ID", type: "text", placeholder: "Optional" },
+  { key: "teamMembers", label: "Team", type: "multi-select", options: TEAM_MEMBERS },
 ];
 
 export default function ContactsPage() {
-  const { contacts, buildings, leases, addContact, addTask } = useData();
+  const { contacts, buildings, leases, addContact, addActivity } = useData();
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [addOpen, setAddOpen] = useState(false);
   const [buildingFilter, setBuildingFilter] = useState<string>("all");
-  const [taskOpen, setTaskOpen] = useState(false);
-  const [taskDefaults, setTaskDefaults] = useState<Record<string, unknown>>({});
+  const [quickActOpen, setQuickActOpen] = useState(false);
+  const [quickActDefaults, setQuickActDefaults] = useState<Record<string, unknown>>({});
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -178,21 +161,24 @@ export default function ContactsPage() {
       />
 
       <EditDialog
-        open={taskOpen}
-        onOpenChange={setTaskOpen}
-        title="Add Task"
-        fields={taskFields}
-        values={taskDefaults}
+        open={quickActOpen}
+        onOpenChange={setQuickActOpen}
+        title="Add Activity"
+        fields={quickActivityFields}
+        values={quickActDefaults}
         onSave={(formValues) => {
-          addTask({
+          addActivity({
+            ...quickActDefaults,
             ...formValues,
-            id: genId("t"),
-            createdDate: new Date().toLocaleDateString("en-US", {
+            id: genId("a"),
+            date: "",
+            time: "",
+            addDate: new Date().toLocaleDateString("en-US", {
               month: "2-digit",
               day: "2-digit",
               year: "numeric",
             }),
-          } as Task);
+          } as any);
         }}
       />
 
@@ -290,18 +276,25 @@ export default function ContactsPage() {
                 </TableCell>
                 <TableCell>
                   <button
-                    title="Add task for this contact"
+                    title="Add activity for this contact"
                     onClick={() => {
-                      setTaskDefaults({
-                        title: `Follow up with ${c.name}`,
-                        description: "",
+                      setQuickActDefaults({
+                        regarding: `Follow up with ${c.name}`,
+                        type: "Call",
                         status: "To Do",
                         priority: "Medium",
+                        dueDate: "",
                         teamMembers: [...(c.teamMembers ?? [])],
+                        contact: c.name,
+                        contactId: c.id,
                         company: c.company,
                         companyId: c.companyId,
+                        officePhone: c.officePhone,
+                        ext: c.ext,
+                        mobilePhone: c.mobilePhone,
+                        email: c.email,
                       });
-                      setTaskOpen(true);
+                      setQuickActOpen(true);
                     }}
                     className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
                   >

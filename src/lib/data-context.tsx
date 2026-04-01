@@ -16,7 +16,6 @@ import type {
   Opportunity,
   Activity,
   ProspectEntry,
-  Task,
 } from "./data";
 import {
   companies as seedCompanies,
@@ -26,7 +25,6 @@ import {
   opportunities as seedOpportunities,
   activities as seedActivities,
   prospectEntries as seedProspects,
-  tasks as seedTasks,
 } from "./data";
 import { supabase } from "./supabase";
 
@@ -152,6 +150,8 @@ function mapActivity(r: any): Activity {
     date: r.date ?? "",
     time: r.time ?? "",
     priority: r.priority ?? "Medium",
+    status: r.status ?? "Done",
+    dueDate: r.due_date ?? r.dueDate ?? "",
     contactId: r.contact_id ?? "",
     contact: r.contact ?? "",
     companyId: r.company_id ?? "",
@@ -304,6 +304,9 @@ function toActivityRow(a: Partial<Activity>): Record<string, unknown> {
   if (a.email !== undefined) m.email = a.email;
   if (a.regarding !== undefined) m.regarding = a.regarding;
   if (a.addDate !== undefined) m.add_date = a.addDate;
+  if (a.status !== undefined) m.status = a.status;
+  if (a.dueDate !== undefined) m.due_date = a.dueDate;
+  if ((a as any).teamMembers !== undefined) m.team_members = (a as any).teamMembers;
   return m;
 }
 
@@ -335,7 +338,6 @@ interface DataContextType {
   opportunities: Opportunity[];
   activities: Activity[];
   prospects: ProspectEntry[];
-  tasks: Task[];
 
   addCompany: (c: Company) => void;
   updateCompany: (id: string, partial: Partial<Company>) => void;
@@ -365,9 +367,6 @@ interface DataContextType {
   updateProspect: (id: string, partial: Partial<ProspectEntry>) => void;
   deleteProspect: (id: string) => void;
 
-  addTask: (t: Task) => void;
-  updateTask: (id: string, partial: Partial<Task>) => void;
-  deleteTask: (id: string) => void;
 }
 
 const DataContext = createContext<DataContextType | null>(null);
@@ -385,12 +384,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [opportunities, setOpportunities] = useState<Opportunity[]>(seedOpportunities);
   const [activities, setActivities] = useState<Activity[]>(seedActivities);
   const [prospects, setProspects] = useState<ProspectEntry[]>(seedProspects);
-  const [tasks, setTasks] = useState<Task[]>(seedTasks);
 
   // Fetch all data from Supabase on mount
   useEffect(() => {
     async function fetchAll() {
-      const [cRes, ctRes, bRes, lRes, oRes, aRes, pRes, tRes] = await Promise.all([
+      const [cRes, ctRes, bRes, lRes, oRes, aRes, pRes] = await Promise.all([
         supabase.from("companies").select("*"),
         supabase.from("contacts").select("*"),
         supabase.from("buildings").select("*"),
@@ -398,7 +396,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         supabase.from("opportunities").select("*"),
         supabase.from("activities").select("*"),
         supabase.from("prospect_entries").select("*"),
-        supabase.from("tasks").select("*"),
       ]);
 
       if (cRes.data?.length) setCompanies(cRes.data.map(mapCompany));
@@ -408,7 +405,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (oRes.data?.length) setOpportunities(oRes.data.map(mapOpportunity));
       if (aRes.data?.length) setActivities(aRes.data.map(mapActivity));
       if (pRes.data?.length) setProspects(pRes.data.map(mapProspect));
-      if (tRes.data?.length) setTasks(tRes.data.map((r: any) => r as Task));
     }
     fetchAll();
   }, []);
@@ -511,24 +507,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     supabase.from("prospect_entries").delete().eq("id", id).then();
   }, []);
 
-  // --- Task CRUD ---
-  const addTask = useCallback((t: Task) => {
-    setTasks((p) => [...p, t]);
-    supabase.from("tasks").insert(t).then();
-  }, []);
-  const updateTask = useCallback((id: string, partial: Partial<Task>) => {
-    setTasks((p) => p.map((x) => (x.id === id ? { ...x, ...partial } : x)));
-    supabase.from("tasks").update(partial).eq("id", id).then();
-  }, []);
-  const deleteTask = useCallback((id: string) => {
-    setTasks((p) => p.filter((x) => x.id !== id));
-    supabase.from("tasks").delete().eq("id", id).then();
-  }, []);
-
   return (
     <DataContext.Provider
       value={{
-        companies, contacts, leases, buildings, opportunities, activities, prospects, tasks,
+        companies, contacts, leases, buildings, opportunities, activities, prospects,
         addCompany, updateCompany, deleteCompany,
         addContact, updateContact, deleteContact,
         addLease, updateLease, deleteLease,
@@ -536,7 +518,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         addOpportunity, updateOpportunity, deleteOpportunity,
         addActivity, updateActivity, deleteActivity,
         addProspect, updateProspect, deleteProspect,
-        addTask, updateTask, deleteTask,
       }}
     >
       {children}

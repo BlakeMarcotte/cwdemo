@@ -335,54 +335,84 @@ export default function CompanyDetailPage() {
           </Card>
         </TabsContent>
 
-        {/* ── History (timeline) ─────────────────────────────────────── */}
+        {/* ── History ────────────────────────────────────────────────── */}
         <TabsContent value="history" className="pt-4">
           {companyActivities.length === 0 ? (
             <p className="text-sm text-muted-foreground py-8 text-center">
               No activity history for this company.
             </p>
           ) : (
-            <div className="relative pl-6 space-y-0">
-              {/* Vertical line */}
-              <div className="absolute left-[9px] top-2 bottom-2 w-px bg-border" />
-
-              {companyActivities.map((act) => (
-                <div key={act.id} className="relative pb-5 last:pb-0">
-                  {/* Dot */}
-                  <div
-                    className={`absolute -left-6 top-1.5 h-[9px] w-[9px] rounded-full border-2 border-background ${
-                      activityTypeIcon[act.type] === "text-blue-400"
-                        ? "bg-blue-400"
-                        : activityTypeIcon[act.type] === "text-emerald-400"
-                          ? "bg-emerald-400"
-                          : "bg-yellow-400"
-                    }`}
-                  />
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] ${
-                          act.type === "Call"
-                            ? "bg-blue-500/15 text-blue-400 border-blue-500/30"
-                            : act.type === "Meeting"
-                              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                              : "bg-yellow-500/15 text-yellow-400 border-yellow-500/30"
-                        }`}
-                      >
-                        {act.type}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {act.date}
-                      </span>
-                    </div>
-                    <p className="text-sm text-foreground">{act.regarding}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {act.contact}
-                    </p>
-                  </div>
-                </div>
-              ))}
+            <div className="rounded-lg border border-border bg-card">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="text-xs px-2 py-1.5 w-28">Date / Time</TableHead>
+                    <TableHead className="text-xs px-2 py-1.5 w-24">Result</TableHead>
+                    <TableHead className="text-xs px-2 py-1.5">Title &amp; Details</TableHead>
+                    <TableHead className="text-xs px-2 py-1.5 w-36">Team Member</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {companyActivities.map((act) => (
+                    <TableRow key={act.id}>
+                      <TableCell className="text-xs px-2 py-2 align-top">
+                        <div className="font-medium text-foreground">{act.date}</div>
+                        <div className="text-muted-foreground">{act.time}</div>
+                      </TableCell>
+                      <TableCell className="text-xs px-2 py-2 align-top">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] ${
+                            act.type === "Call"
+                              ? "bg-blue-500/15 text-blue-400 border-blue-500/30"
+                              : act.type === "Meeting"
+                                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                                : "bg-yellow-500/15 text-yellow-400 border-yellow-500/30"
+                          }`}
+                        >
+                          {act.type}
+                        </Badge>
+                        <div className="mt-1">
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] ${
+                              act.priority === "High"
+                                ? "bg-red-500/15 text-red-400 border-red-500/30"
+                                : act.priority === "Medium"
+                                  ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30"
+                                  : "bg-muted text-muted-foreground border-border"
+                            }`}
+                          >
+                            {act.priority}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs px-2 py-2 align-top">
+                        <div className="font-medium text-foreground">{act.contact}</div>
+                        <p className="text-muted-foreground mt-0.5 whitespace-normal leading-relaxed">
+                          {act.regarding}
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-xs px-2 py-2 align-top text-muted-foreground">
+                        {(act.teamMembers ?? []).length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {act.teamMembers.map((m) => (
+                              <span
+                                key={m}
+                                className="inline-flex items-center rounded-full bg-indigo-500/15 px-1.5 py-0 text-[10px] text-indigo-400"
+                              >
+                                {m}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          act.contact
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </TabsContent>

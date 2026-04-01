@@ -12,7 +12,6 @@ import {
   Calendar,
   Target,
   Scale,
-  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +23,6 @@ const navItems = [
   { label: "Buildings", icon: Building, href: "/buildings" },
   { label: "Opportunities", icon: TrendingUp, href: "/opportunities" },
   { label: "Activities", icon: Calendar, href: "/activities" },
-  { label: "Tasks", icon: ClipboardList, href: "/tasks" },
   { label: "Comps", icon: Scale, href: "/comps" },
   { label: "Prospecting", icon: Target, href: "/prospecting" },
 ] as const;
