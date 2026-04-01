@@ -233,6 +233,7 @@ export default function LeasesPage() {
           tenantBrokerage: "",
           tenantReps: "",
           teamMembers: [],
+          status: "Active",
         }}
         onSave={(values) => {
           const tenantBrokerage =
@@ -390,6 +391,7 @@ export default function LeasesPage() {
               <SortHeader label="Lease Expiration" field="leaseExpiration" />
               <SortHeader label="Agreement" field="agreement" />
               <TableHead>Tenant Brokerage</TableHead>
+              <SortHeader label="Status" field="status" />
               <SortHeader label="Active" field="activeOpportunity" />
               <SortHeader label="Comp" field="comp" />
               <TableHead>Team</TableHead>
@@ -446,6 +448,14 @@ export default function LeasesPage() {
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {l.tenantBrokerage.join(", ")}
+                </TableCell>
+                <TableCell className="text-xs">
+                  <Badge
+                    variant="outline"
+                    className={`text-[10px] ${leaseStatusColor[l.status] ?? leaseStatusColor["Active"]}`}
+                  >
+                    {l.status}
+                  </Badge>
                 </TableCell>
                 <TableCell className="text-center">
                   {l.activeOpportunity ? (
