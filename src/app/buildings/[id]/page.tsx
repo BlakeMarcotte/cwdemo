@@ -32,6 +32,10 @@ import {
   CalendarClock,
   AlertTriangle,
   DollarSign,
+  ArrowUpDown,
+  Send,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import { TEAM_MEMBERS } from "@/lib/data";
 
@@ -302,250 +306,369 @@ export default function BuildingDetailPage() {
         </Card>
       </div>
 
-      {/* Financial Intelligence — Pro Rata Share & Cash Flow Analysis */}
-      {building.rentPerSF != null && buildingLeases.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-semibold flex items-center gap-2">
-            <DollarSign size={16} />
-            Financial Intelligence
-          </h2>
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs">Tenant</TableHead>
-                  <TableHead className="text-xs">Suite(s)</TableHead>
-                  <TableHead className="text-xs text-right">SF</TableHead>
-                  <TableHead className="text-xs text-right">Pro Rata Share</TableHead>
-                  <TableHead className="text-xs text-right">Annualized Rent</TableHead>
-                  {building.taxOperating != null && (
-                    <TableHead className="text-xs text-right">Gross (w/ Tax & Op)</TableHead>
-                  )}
-                  <TableHead className="text-xs">Expiration</TableHead>
-                  <TableHead className="text-xs text-right">Cash Flow Gap</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {buildingLeases.map((lease) => {
-                  const proRata = building.squareFootage > 0
-                    ? (lease.squareFootage / building.squareFootage) * 100
-                    : 0;
-                  const annualizedRent = lease.squareFootage * (building.rentPerSF ?? 0);
-                  const grossRent = building.taxOperating != null
-                    ? lease.squareFootage * ((building.rentPerSF ?? 0) + building.taxOperating)
-                    : null;
-                  const expYear = lease.leaseExpiration ? getExpYear(lease.leaseExpiration) : null;
-                  const isExpiringSoon = expYear != null && expYear <= CURRENT_YEAR + 2;
-
-                  return (
-                    <TableRow key={lease.id}>
-                      <TableCell className="text-xs">
-                        <Link
-                          href={`/companies/${lease.companyId}`}
-                          className="text-cw-green hover:underline font-medium"
-                        >
-                          {lease.company}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {lease.suites}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground text-right">
-                        {lease.squareFootage.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-xs text-right font-medium">
-                        {proRata.toFixed(1)}%
-                      </TableCell>
-                      <TableCell className="text-xs text-right font-medium text-emerald-400">
-                        ${annualizedRent.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                      </TableCell>
-                      {building.taxOperating != null && (
-                        <TableCell className="text-xs text-right text-muted-foreground">
-                          ${grossRent?.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                        </TableCell>
-                      )}
-                      <TableCell className="text-xs">
-                        <span className={isExpiringSoon ? "text-amber-400 font-medium" : "text-muted-foreground"}>
-                          {isExpiringSoon && <AlertTriangle size={10} className="inline mr-1" />}
-                          {lease.leaseExpiration || "—"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-xs text-right">
-                        {isExpiringSoon ? (
-                          <span className="font-medium text-red-400">
-                            -${annualizedRent.toLocaleString(undefined, { maximumFractionDigits: 0 })}/yr
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-                {/* Totals row */}
-                <TableRow className="border-t-2 border-border font-medium">
-                  <TableCell className="text-xs" colSpan={2}>
-                    Total
-                  </TableCell>
-                  <TableCell className="text-xs text-right">
-                    {occupiedSF.toLocaleString()}
-                  </TableCell>
-                  <TableCell className="text-xs text-right">
-                    {(building.squareFootage > 0 ? (occupiedSF / building.squareFootage) * 100 : 0).toFixed(1)}%
-                  </TableCell>
-                  <TableCell className="text-xs text-right text-emerald-400">
-                    ${(occupiedSF * (building.rentPerSF ?? 0)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </TableCell>
-                  {building.taxOperating != null && (
-                    <TableCell className="text-xs text-right text-muted-foreground">
-                      ${(occupiedSF * ((building.rentPerSF ?? 0) + building.taxOperating)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                    </TableCell>
-                  )}
-                  <TableCell className="text-xs" />
-                  <TableCell className="text-xs text-right text-red-400">
-                    {(() => {
-                      const atRiskSF = buildingLeases
-                        .filter((l) => l.leaseExpiration && getExpYear(l.leaseExpiration) <= CURRENT_YEAR + 2)
-                        .reduce((sum, l) => sum + l.squareFootage, 0);
-                      const atRiskRent = atRiskSF * (building.rentPerSF ?? 0);
-                      return atRiskRent > 0
-                        ? `-$${atRiskRent.toLocaleString(undefined, { maximumFractionDigits: 0 })}/yr`
-                        : "—";
-                    })()}
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </div>
-        </div>
+      {/* Tenants — sortable/filterable table (was Financial Intelligence) */}
+      {buildingLeases.length > 0 && (
+        <TenantsSection
+          building={building}
+          leases={buildingLeases}
+          occupiedSF={occupiedSF}
+        />
       )}
 
       {/* Lease Expiration Summary */}
       {buildingLeases.length > 0 && <LeaseExpirationSection leases={buildingLeases} />}
 
-      {/* Tenants section */}
-      <div className="space-y-2">
+      {/* Contacts — flat table with checkboxes + email all */}
+      <ContactsSection
+        leases={buildingLeases}
+        contacts={contacts}
+        buildingAddress={building.address}
+      />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tenants Section (sortable/filterable table)
+// ---------------------------------------------------------------------------
+
+type TenantSortKey = "company" | "suites" | "squareFootage" | "proRata" | "annualizedRent" | "grossRent" | "leaseExpiration" | "agreement";
+
+function TenantsSection({
+  building,
+  leases,
+  occupiedSF,
+}: {
+  building: { squareFootage: number; rentPerSF: number | null; taxOperating: number | null };
+  leases: any[];
+  occupiedSF: number;
+}) {
+  const [sortKey, setSortKey] = useState<TenantSortKey>("company");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [filterCompany, setFilterCompany] = useState("");
+
+  function toggleSort(key: TenantSortKey) {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  }
+
+  const enriched = useMemo(() => {
+    return leases.map((l) => {
+      const proRata = building.squareFootage > 0 ? (l.squareFootage / building.squareFootage) * 100 : 0;
+      const annualizedRent = l.squareFootage * (building.rentPerSF ?? 0);
+      const grossRent = building.taxOperating != null ? l.squareFootage * ((building.rentPerSF ?? 0) + building.taxOperating) : null;
+      const expYear = l.leaseExpiration ? getExpYear(l.leaseExpiration) : null;
+      const isExpiringSoon = expYear != null && expYear <= CURRENT_YEAR + 2;
+      return { ...l, proRata, annualizedRent, grossRent, expYear, isExpiringSoon };
+    });
+  }, [leases, building]);
+
+  const sorted = useMemo(() => {
+    let list = [...enriched];
+    if (filterCompany) list = list.filter((l) => l.company.toLowerCase().includes(filterCompany.toLowerCase()));
+    list.sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "company": cmp = a.company.localeCompare(b.company); break;
+        case "suites": cmp = a.suites.localeCompare(b.suites); break;
+        case "squareFootage": cmp = a.squareFootage - b.squareFootage; break;
+        case "proRata": cmp = a.proRata - b.proRata; break;
+        case "annualizedRent": cmp = a.annualizedRent - b.annualizedRent; break;
+        case "grossRent": cmp = (a.grossRent ?? 0) - (b.grossRent ?? 0); break;
+        case "leaseExpiration": cmp = parseExpDate(a.leaseExpiration || "").getTime() - parseExpDate(b.leaseExpiration || "").getTime(); break;
+        case "agreement": cmp = a.agreement.localeCompare(b.agreement); break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return list;
+  }, [enriched, sortKey, sortDir, filterCompany]);
+
+  function SortHead({ label, field, align }: { label: string; field: TenantSortKey; align?: string }) {
+    return (
+      <TableHead className={`text-xs ${align ?? ""}`}>
+        <button
+          onClick={() => toggleSort(field)}
+          className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+        >
+          {label}
+          <ArrowUpDown size={10} className={sortKey === field ? "text-cw-green" : "text-muted-foreground/40"} />
+        </button>
+      </TableHead>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold flex items-center gap-2">
+          <DollarSign size={16} />
+          Tenants
+        </h2>
+        <input
+          type="text"
+          placeholder="Filter by tenant..."
+          value={filterCompany}
+          onChange={(e) => setFilterCompany(e.target.value)}
+          className="h-7 w-48 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+      </div>
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <SortHead label="Tenant" field="company" />
+              <SortHead label="Suite(s)" field="suites" />
+              <SortHead label="SF" field="squareFootage" align="text-right" />
+              <SortHead label="Pro Rata" field="proRata" align="text-right" />
+              {building.rentPerSF != null && <SortHead label="Annual Rent" field="annualizedRent" align="text-right" />}
+              {building.taxOperating != null && <SortHead label="Gross (w/ Tax & Op)" field="grossRent" align="text-right" />}
+              <SortHead label="Expiration" field="leaseExpiration" />
+              <SortHead label="Agreement" field="agreement" />
+              {building.rentPerSF != null && <TableHead className="text-xs text-right">Cash Flow Gap</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sorted.map((l) => (
+              <TableRow key={l.id}>
+                <TableCell className="text-xs">
+                  <Link href={`/companies/${l.companyId}`} className="text-cw-green hover:underline font-medium">{l.company}</Link>
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">{l.suites}</TableCell>
+                <TableCell className="text-xs text-muted-foreground text-right">{l.squareFootage.toLocaleString()}</TableCell>
+                <TableCell className="text-xs text-right font-medium">{l.proRata.toFixed(1)}%</TableCell>
+                {building.rentPerSF != null && (
+                  <TableCell className="text-xs text-right font-medium text-emerald-400">
+                    ${l.annualizedRent.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </TableCell>
+                )}
+                {building.taxOperating != null && (
+                  <TableCell className="text-xs text-right text-muted-foreground">
+                    ${l.grossRent?.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </TableCell>
+                )}
+                <TableCell className="text-xs">
+                  <span className={l.isExpiringSoon ? "text-amber-400 font-medium" : "text-muted-foreground"}>
+                    {l.isExpiringSoon && <AlertTriangle size={10} className="inline mr-1" />}
+                    {l.leaseExpiration || "\u2014"}
+                  </span>
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">{l.agreement}</TableCell>
+                {building.rentPerSF != null && (
+                  <TableCell className="text-xs text-right">
+                    {l.isExpiringSoon ? (
+                      <span className="font-medium text-red-400">-${l.annualizedRent.toLocaleString(undefined, { maximumFractionDigits: 0 })}/yr</span>
+                    ) : (
+                      <span className="text-muted-foreground">{"\u2014"}</span>
+                    )}
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+            {/* Totals row */}
+            <TableRow className="border-t-2 border-border font-medium">
+              <TableCell className="text-xs" colSpan={2}>Total</TableCell>
+              <TableCell className="text-xs text-right">{occupiedSF.toLocaleString()}</TableCell>
+              <TableCell className="text-xs text-right">
+                {(building.squareFootage > 0 ? (occupiedSF / building.squareFootage) * 100 : 0).toFixed(1)}%
+              </TableCell>
+              {building.rentPerSF != null && (
+                <TableCell className="text-xs text-right text-emerald-400">
+                  ${(occupiedSF * (building.rentPerSF ?? 0)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </TableCell>
+              )}
+              {building.taxOperating != null && (
+                <TableCell className="text-xs text-right text-muted-foreground">
+                  ${(occupiedSF * ((building.rentPerSF ?? 0) + building.taxOperating)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </TableCell>
+              )}
+              <TableCell className="text-xs" />
+              <TableCell className="text-xs" />
+              {building.rentPerSF != null && (
+                <TableCell className="text-xs text-right text-red-400">
+                  {(() => {
+                    const atRiskSF = sorted.filter((l) => l.isExpiringSoon).reduce((sum, l) => sum + l.squareFootage, 0);
+                    const atRiskRent = atRiskSF * (building.rentPerSF ?? 0);
+                    return atRiskRent > 0 ? `-$${atRiskRent.toLocaleString(undefined, { maximumFractionDigits: 0 })}/yr` : "\u2014";
+                  })()}
+                </TableCell>
+              )}
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Contacts Section (checkboxes + email all)
+// ---------------------------------------------------------------------------
+
+function ContactsSection({
+  leases,
+  contacts,
+  buildingAddress,
+}: {
+  leases: any[];
+  contacts: any[];
+  buildingAddress: string;
+}) {
+  const companyIds = useMemo(() => new Set(leases.map((l) => l.companyId)), [leases]);
+  const allContacts = useMemo(() => {
+    return contacts
+      .filter((c) => companyIds.has(c.companyId))
+      .map((c) => {
+        const lease = leases.find((l) => l.companyId === c.companyId);
+        return { ...c, leaseCompany: lease?.company ?? c.company };
+      });
+  }, [contacts, companyIds, leases]);
+
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const allSelected = allContacts.length > 0 && selected.size === allContacts.length;
+
+  function toggleAll() {
+    if (allSelected) setSelected(new Set());
+    else setSelected(new Set(allContacts.map((c) => c.id)));
+  }
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function handleEmailAll() {
+    const selectedContacts = allContacts.filter((c) => selected.has(c.id));
+    if (selectedContacts.length === 0) return;
+
+    const to = selectedContacts.map((c) => c.email).filter(Boolean).join(",");
+    const names = selectedContacts.map((c) => c.name.split(" ")[0]);
+    const uniqueNames = [...new Set(names)];
+
+    let greeting: string;
+    if (uniqueNames.length === 1) {
+      greeting = `Hi ${uniqueNames[0]},`;
+    } else if (uniqueNames.length <= 3) {
+      greeting = `Hi ${uniqueNames.slice(0, -1).join(", ")} and ${uniqueNames[uniqueNames.length - 1]},`;
+    } else {
+      greeting = "Hi All,";
+    }
+
+    const companies = [...new Set(selectedContacts.map((c) => c.leaseCompany))].join(", ");
+    const subject = encodeURIComponent(`${buildingAddress} — Update`);
+    const body = encodeURIComponent(
+      `${greeting}\n\nI wanted to reach out regarding your space at ${buildingAddress}.\n\n[Your message here]\n\nBest regards`
+    );
+
+    window.open(`mailto:${to}?subject=${subject}&body=${body}`, "_self");
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold flex items-center gap-2">
           <Users size={16} />
-          Tenants ({uniqueCompanies.size} companies, {buildingLeases.length} leases)
+          Contacts ({allContacts.length})
         </h2>
-
-        {buildingLeases.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No tenants in this building.
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {buildingLeases.map((lease) => {
-              const tenantContacts = contacts.filter(
-                (c) => c.companyId === lease.companyId
-              );
-
-              return (
-                <Card key={lease.id}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center justify-between text-sm">
-                      <Link
-                        href={`/companies/${lease.companyId}`}
-                        className="text-cw-green hover:underline font-semibold"
-                      >
-                        {lease.company}
-                      </Link>
-                      <span className="text-xs text-muted-foreground font-normal">
-                        {lease.suites}
-                      </span>
-                    </CardTitle>
-                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
-                      <span>
-                        {lease.squareFootage.toLocaleString()} SF
-                      </span>
-                      <span>{lease.assetType}</span>
-                      <span>
-                        Lease: {lease.leaseCommencement} &ndash;{" "}
-                        {lease.leaseExpiration}
-                      </span>
-                      <span>{lease.agreement}</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {tenantContacts.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">
-                        No contacts on file.
-                      </p>
-                    ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="text-xs">Name</TableHead>
-                            <TableHead className="text-xs">Title</TableHead>
-                            <TableHead className="text-xs">Phone</TableHead>
-                            <TableHead className="text-xs">Email</TableHead>
-                            <TableHead className="text-xs">
-                              Designation
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {tenantContacts.map((ct) => (
-                            <TableRow key={ct.id}>
-                              <TableCell className="text-xs">
-                                <Link
-                                  href={`/contacts/${ct.id}`}
-                                  className="text-cw-green hover:underline font-medium"
-                                >
-                                  {ct.name}
-                                </Link>
-                              </TableCell>
-                              <TableCell className="text-xs text-muted-foreground">
-                                {ct.title}
-                              </TableCell>
-                              <TableCell className="text-xs text-muted-foreground">
-                                <span className="flex items-center gap-1">
-                                  <Phone size={11} />
-                                  {ct.officePhone}
-                                  {ct.ext ? ` x${ct.ext}` : ""}
-                                </span>
-                                {ct.mobilePhone && (
-                                  <span className="flex items-center gap-1 mt-0.5">
-                                    <Phone size={11} />
-                                    {ct.mobilePhone}
-                                  </span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-xs">
-                                <a
-                                  href={`mailto:${ct.email}`}
-                                  className="text-cw-blue hover:underline inline-flex items-center gap-1"
-                                >
-                                  <Mail size={11} />
-                                  {ct.email}
-                                </a>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex gap-1 flex-wrap">
-                                  {ct.designation.map((d) => (
-                                    <Badge
-                                      key={d}
-                                      variant="outline"
-                                      className={`text-[10px] px-1.5 py-0 h-4 ${designationColor[d] ?? ""}`}
-                                    >
-                                      {d}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+        {selected.size > 0 && (
+          <Button size="sm" className="gap-1.5" onClick={handleEmailAll}>
+            <Send size={13} />
+            Email {selected.size === allContacts.length ? "All" : selected.size} Contact{selected.size !== 1 ? "s" : ""}
+          </Button>
         )}
       </div>
+
+      {allContacts.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No contacts on file for this building.</p>
+      ) : (
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[40px]">
+                  <button onClick={toggleAll} className="p-0.5">
+                    {allSelected ? (
+                      <CheckSquare size={14} className="text-cw-green" />
+                    ) : (
+                      <Square size={14} className="text-muted-foreground/40" />
+                    )}
+                  </button>
+                </TableHead>
+                <TableHead className="text-xs">Name</TableHead>
+                <TableHead className="text-xs">Company</TableHead>
+                <TableHead className="text-xs">Title</TableHead>
+                <TableHead className="text-xs">Phone</TableHead>
+                <TableHead className="text-xs">Email</TableHead>
+                <TableHead className="text-xs">Designation</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {allContacts.map((ct) => {
+                const isSelected = selected.has(ct.id);
+                return (
+                  <TableRow
+                    key={ct.id}
+                    className={isSelected ? "bg-indigo-500/5" : ""}
+                  >
+                    <TableCell>
+                      <button onClick={() => toggle(ct.id)} className="p-0.5">
+                        {isSelected ? (
+                          <CheckSquare size={14} className="text-cw-green" />
+                        ) : (
+                          <Square size={14} className="text-muted-foreground/40" />
+                        )}
+                      </button>
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      <Link href={`/contacts/${ct.id}`} className="text-cw-green hover:underline font-medium">
+                        {ct.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      <Link href={`/companies/${ct.companyId}`} className="text-cw-green hover:underline">
+                        {ct.leaseCompany}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{ct.title}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Phone size={11} />
+                        {ct.officePhone}
+                        {ct.ext ? ` x${ct.ext}` : ""}
+                      </span>
+                      {ct.mobilePhone && (
+                        <span className="flex items-center gap-1 mt-0.5">
+                          <Phone size={11} />
+                          {ct.mobilePhone}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      <a href={`mailto:${ct.email}`} className="text-cw-blue hover:underline inline-flex items-center gap-1">
+                        <Mail size={11} />
+                        {ct.email}
+                      </a>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 flex-wrap">
+                        {ct.designation.map((d: string) => (
+                          <Badge key={d} variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${designationColor[d] ?? ""}`}>
+                            {d}
+                          </Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }

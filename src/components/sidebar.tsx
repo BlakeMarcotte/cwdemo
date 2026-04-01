@@ -34,10 +34,10 @@ export function Sidebar() {
     <aside className="flex w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       {/* Brand */}
       <div className="px-4 py-4">
-        <h1 className="text-base font-semibold tracking-tight text-white">
+        <h1 className="text-base font-semibold tracking-tight text-sidebar-foreground">
           BPN Solutions
         </h1>
-        <p className="mt-0.5 text-xs text-muted-foreground">
+        <p className="mt-0.5 text-xs text-sidebar-foreground/50">
           Cushman &amp; Wakefield
         </p>
       </div>

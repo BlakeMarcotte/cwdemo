@@ -3,9 +3,17 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useData, genId } from "@/lib/data-context";
-import { ArrowUpDown, Plus } from "lucide-react";
+import { ArrowUpDown, Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EditDialog, type FieldDef } from "@/components/edit-dialog";
 import {
   Table,
@@ -84,6 +92,39 @@ export default function BuildingsPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [addOpen, setAddOpen] = useState(false);
 
+  // Filter state
+  const [filterSubmarket, setFilterSubmarket] = useState("all");
+  const [filterClass, setFilterClass] = useState("all");
+  const [filterLandlord, setFilterLandlord] = useState("all");
+  const [filterMinSF, setFilterMinSF] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
+
+  // Derive unique submarkets and landlords from data
+  const submarkets = useMemo(() => {
+    const set = new Set(buildings.map((b) => b.submarket).filter(Boolean));
+    return Array.from(set).sort();
+  }, [buildings]);
+
+  const landlords = useMemo(() => {
+    const set = new Set(buildings.flatMap((b) => b.landlord).filter(Boolean));
+    return Array.from(set).sort();
+  }, [buildings]);
+
+  const hasActiveFilters =
+    filterSubmarket !== "all" ||
+    filterClass !== "all" ||
+    filterLandlord !== "all" ||
+    filterMinSF !== "" ||
+    filterSearch !== "";
+
+  function clearFilters() {
+    setFilterSubmarket("all");
+    setFilterClass("all");
+    setFilterLandlord("all");
+    setFilterMinSF("");
+    setFilterSearch("");
+  }
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -93,8 +134,26 @@ export default function BuildingsPage() {
     }
   }
 
+  // Filter, then sort
+  const filtered = useMemo(() => {
+    return buildings.filter((b) => {
+      if (filterSubmarket !== "all" && b.submarket !== filterSubmarket) return false;
+      if (filterClass !== "all" && b.buildingClass !== filterClass) return false;
+      if (filterLandlord !== "all" && !b.landlord.includes(filterLandlord)) return false;
+      if (filterMinSF !== "") {
+        const min = Number(filterMinSF);
+        if (!isNaN(min) && b.squareFootage < min) return false;
+      }
+      if (filterSearch.trim() !== "") {
+        const q = filterSearch.trim().toLowerCase();
+        if (!b.address.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [buildings, filterSubmarket, filterClass, filterLandlord, filterMinSF, filterSearch]);
+
   const sorted = useMemo(() => {
-    return [...buildings].sort((a, b) => {
+    return [...filtered].sort((a, b) => {
       const aVal = a[sortKey];
       const bVal = b[sortKey];
       if (aVal == null && bVal == null) return 0;
@@ -106,7 +165,7 @@ export default function BuildingsPage() {
           : String(aVal).localeCompare(String(bVal));
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [buildings, sortKey, sortDir]);
+  }, [filtered, sortKey, sortDir]);
 
   function SortHeader({ label, field }: { label: string; field: SortKey }) {
     return (
@@ -147,13 +206,96 @@ export default function BuildingsPage() {
         <h1 className="text-lg font-semibold">Buildings</h1>
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">
-            {buildings.length} buildings
+            {filtered.length === buildings.length
+              ? `${buildings.length} buildings`
+              : `${filtered.length} of ${buildings.length} buildings`}
           </span>
           <Button size="sm" onClick={() => setAddOpen(true)}>
             <Plus size={14} className="mr-1" />
             Add Building
           </Button>
         </div>
+      </div>
+
+      {/* Filter bar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Submarket dropdown */}
+        <Select value={filterSubmarket} onValueChange={(v) => setFilterSubmarket(v ?? "all")}>
+          <SelectTrigger className="text-xs h-7 min-w-[130px]">
+            <SelectValue placeholder="All Submarkets" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Submarkets</SelectItem>
+            {submarkets.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Class toggle buttons */}
+        <div className="flex items-center rounded-lg border border-input overflow-hidden">
+          {["all", "A", "B", "C"].map((cls) => (
+            <button
+              key={cls}
+              onClick={() => setFilterClass(cls)}
+              className={`px-2.5 py-1 text-xs transition-colors ${
+                filterClass === cls
+                  ? "bg-foreground text-background font-medium"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              {cls === "all" ? "All" : `Class ${cls}`}
+            </button>
+          ))}
+        </div>
+
+        {/* Landlord dropdown */}
+        <Select value={filterLandlord} onValueChange={(v) => setFilterLandlord(v ?? "all")}>
+          <SelectTrigger className="text-xs h-7 min-w-[140px]">
+            <SelectValue placeholder="All Landlords" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Landlords</SelectItem>
+            {landlords.map((l) => (
+              <SelectItem key={l} value={l}>
+                {l}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Min SF input */}
+        <Input
+          type="number"
+          placeholder="Min SF"
+          value={filterMinSF}
+          onChange={(e) => setFilterMinSF(e.target.value)}
+          className="w-24 h-7 text-xs"
+        />
+
+        {/* Search input */}
+        <Input
+          type="text"
+          placeholder="Search address..."
+          value={filterSearch}
+          onChange={(e) => setFilterSearch(e.target.value)}
+          className="w-40 h-7 text-xs"
+        />
+
+        {/* Clear filters */}
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+          >
+            <X size={12} />
+            Clear filters
+          </Button>
+        )}
       </div>
 
       <EditDialog

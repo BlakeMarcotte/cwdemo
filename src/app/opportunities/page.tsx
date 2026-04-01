@@ -1,11 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
-import { TrendingUp, DollarSign, Plus, Pencil } from "lucide-react";
+import { TrendingUp, DollarSign, Plus, Pencil, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useData, genId } from "@/lib/data-context";
 import { EditDialog, type FieldDef } from "@/components/edit-dialog";
 import { TEAM_MEMBERS } from "@/lib/data";
@@ -91,15 +99,67 @@ export default function OpportunitiesPage() {
   const [editValues, setEditValues] = useState<Record<string, unknown>>({});
   const [editId, setEditId] = useState<string | null>(null);
 
-  const pipelineValue = opportunities
+  // Filter state
+  const allStageKeys = stages.map((s) => s.key);
+  const [activeStages, setActiveStages] = useState<Set<OpportunityStage>>(
+    () => new Set(allStageKeys)
+  );
+  const [filterTeamMember, setFilterTeamMember] = useState("all");
+  const [filterMinCommission, setFilterMinCommission] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
+
+  function toggleStage(key: OpportunityStage) {
+    setActiveStages((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
+  const hasActiveFilters =
+    activeStages.size !== allStageKeys.length ||
+    filterTeamMember !== "all" ||
+    filterMinCommission !== "" ||
+    filterSearch !== "";
+
+  function clearFilters() {
+    setActiveStages(new Set(allStageKeys));
+    setFilterTeamMember("all");
+    setFilterMinCommission("");
+    setFilterSearch("");
+  }
+
+  // Filter opportunities BEFORE grouping
+  const filteredOpportunities = useMemo(() => {
+    return opportunities.filter((o) => {
+      if (!activeStages.has(o.stage)) return false;
+      if (filterTeamMember !== "all" && !(o.teamMembers ?? []).includes(filterTeamMember))
+        return false;
+      if (filterMinCommission !== "") {
+        const min = Number(filterMinCommission);
+        if (!isNaN(min) && o.estimatedCommission < min) return false;
+      }
+      if (filterSearch.trim() !== "") {
+        const q = filterSearch.trim().toLowerCase();
+        if (!o.company.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [opportunities, activeStages, filterTeamMember, filterMinCommission, filterSearch]);
+
+  const pipelineValue = filteredOpportunities
     .filter((o) => o.stage !== "Closed Lost")
     .reduce((sum, o) => sum + o.estimatedCommission, 0);
 
-  const closedWonValue = opportunities
+  const closedWonValue = filteredOpportunities
     .filter((o) => o.stage === "Closed Won")
     .reduce((sum, o) => sum + o.estimatedCommission, 0);
 
-  const activeDeals = opportunities.filter(
+  const activeDeals = filteredOpportunities.filter(
     (o) => o.stage !== "Closed Won" && o.stage !== "Closed Lost"
   ).length;
 
@@ -112,7 +172,9 @@ export default function OpportunitiesPage() {
             <DollarSign size={16} className="text-green-400" />
           </div>
           <div>
-            <p className="text-xs text-muted-foreground">Pipeline Value</p>
+            <p className="text-xs text-muted-foreground">
+              Pipeline Value{hasActiveFilters ? " (filtered)" : ""}
+            </p>
             <p className="text-sm font-semibold text-foreground">
               {formatCurrency(pipelineValue)}
             </p>
@@ -151,11 +213,90 @@ export default function OpportunitiesPage() {
         </Button>
       </div>
 
+      {/* Filter bar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Stage toggle buttons */}
+        <div className="flex items-center rounded-lg border border-input overflow-hidden">
+          {stages.map((s) => (
+            <button
+              key={s.key}
+              onClick={() => toggleStage(s.key)}
+              className={`px-2 py-1 text-[11px] transition-colors ${
+                activeStages.has(s.key)
+                  ? "bg-foreground text-background font-medium"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Team member dropdown */}
+        <Select value={filterTeamMember} onValueChange={(v) => setFilterTeamMember(v ?? "all")}>
+          <SelectTrigger className="text-xs h-7 min-w-[140px]">
+            <SelectValue placeholder="All Team Members" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Team Members</SelectItem>
+            {TEAM_MEMBERS.map((m) => (
+              <SelectItem key={m} value={m}>
+                {m}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Min commission input */}
+        <Input
+          type="number"
+          placeholder="Min Commission"
+          value={filterMinCommission}
+          onChange={(e) => setFilterMinCommission(e.target.value)}
+          className="w-32 h-7 text-xs"
+        />
+
+        {/* Search input */}
+        <Input
+          type="text"
+          placeholder="Search company..."
+          value={filterSearch}
+          onChange={(e) => setFilterSearch(e.target.value)}
+          className="w-40 h-7 text-xs"
+        />
+
+        {/* Clear filters */}
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+          >
+            <X size={12} />
+            Clear filters
+          </Button>
+        )}
+
+        {hasActiveFilters && (
+          <span className="text-[11px] text-muted-foreground ml-auto">
+            {filteredOpportunities.length} of {opportunities.length} opportunities
+          </span>
+        )}
+      </div>
+
       {/* Kanban board */}
       <div className="flex-1 overflow-x-auto pb-2">
-        <div className="grid grid-cols-6 gap-3 min-w-[1100px] h-full">
-          {stages.map((stage) => {
-            const stageOpps = opportunities.filter(
+        <div
+          className="gap-3 h-full"
+          style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(${stages.filter((s) => activeStages.has(s.key)).length}, minmax(180px, 1fr))`,
+            minWidth: `${Math.max(stages.filter((s) => activeStages.has(s.key)).length * 180, 600)}px`,
+          }}
+        >
+          {stages.filter((s) => activeStages.has(s.key)).map((stage) => {
+            const stageOpps = filteredOpportunities.filter(
               (o) => o.stage === stage.key
             );
             const stageTotal = stageOpps.reduce(

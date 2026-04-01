@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Circle,
   Clock,
+  Search,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -148,6 +149,11 @@ export default function ActivitiesPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<FilterType>("All");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("All");
+  const [filterPriority, setFilterPriority] = useState<"All" | "High" | "Medium" | "Low">("All");
+  const [filterTeamMember, setFilterTeamMember] = useState<string>("All");
+  const [filterDateFrom, setFilterDateFrom] = useState<string>("");
+  const [filterDateTo, setFilterDateTo] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortKey, setSortKey] = useState<SortKey>("status");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -172,6 +178,27 @@ export default function ActivitiesPage() {
     if (filterType !== "All") list = list.filter((a) => a.type === filterType);
     if (filterStatus !== "All")
       list = list.filter((a) => a.status === filterStatus);
+    if (filterPriority !== "All")
+      list = list.filter((a) => a.priority === filterPriority);
+    if (filterTeamMember !== "All")
+      list = list.filter((a) => (a.teamMembers ?? []).includes(filterTeamMember));
+    if (filterDateFrom) {
+      const fromTs = new Date(filterDateFrom).getTime();
+      list = list.filter((a) => a.date && parseDate(a.date) >= fromTs);
+    }
+    if (filterDateTo) {
+      const toTs = new Date(filterDateTo).getTime() + 86400000 - 1;
+      list = list.filter((a) => a.date && parseDate(a.date) <= toTs);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter(
+        (a) =>
+          a.company.toLowerCase().includes(q) ||
+          a.contact.toLowerCase().includes(q) ||
+          a.regarding.toLowerCase().includes(q)
+      );
+    }
 
     list.sort((a, b) => {
       let cmp = 0;
@@ -212,7 +239,7 @@ export default function ActivitiesPage() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return list;
-  }, [activities, filterType, filterStatus, sortKey, sortDir]);
+  }, [activities, filterType, filterStatus, filterPriority, filterTeamMember, filterDateFrom, filterDateTo, searchQuery, sortKey, sortDir]);
 
   function openEdit(a: (typeof activities)[number]) {
     setEditId(a.id);
@@ -319,41 +346,96 @@ export default function ActivitiesPage() {
       </div>
 
       {/* Filter bars */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {/* Status filter */}
-        {statusFilters.map((f) => (
-          <Button
-            key={f.value}
-            variant={filterStatus === f.value ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilterStatus(f.value)}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Status filter */}
+          {statusFilters.map((f) => (
+            <Button
+              key={f.value}
+              variant={filterStatus === f.value ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterStatus(f.value)}
+            >
+              {f.label}
+            </Button>
+          ))}
+          <span className="w-px h-5 bg-border mx-1" />
+          {/* Type filter */}
+          {typeFilters.map((f) => (
+            <Button
+              key={f.value}
+              variant={filterType === f.value ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterType(f.value)}
+            >
+              {f.label}
+            </Button>
+          ))}
+          <span className="w-px h-5 bg-border mx-1" />
+          {/* Priority filter */}
+          {(["All", "High", "Medium", "Low"] as const).map((p) => (
+            <Button
+              key={p}
+              variant={filterPriority === p ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterPriority(p)}
+            >
+              {p === "All" ? "All Priorities" : p}
+            </Button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Team Member dropdown */}
+          <select
+            value={filterTeamMember}
+            onChange={(e) => setFilterTeamMember(e.target.value)}
+            className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
-            {f.label}
-          </Button>
-        ))}
-        <span className="w-px h-5 bg-border mx-1" />
-        {/* Type filter */}
-        {typeFilters.map((f) => (
+            <option value="All">All Team Members</option>
+            {TEAM_MEMBERS.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+          {/* Date Range */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">From</span>
+            <input
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+              className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <span className="text-xs text-muted-foreground">To</span>
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+              className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          {/* Search */}
+          <div className="relative">
+            <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search company, contact, regarding..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 w-64 rounded-md border border-border bg-background pl-7 pr-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {filtered.length} activities
+          </span>
           <Button
-            key={f.value}
-            variant={filterType === f.value ? "default" : "outline"}
             size="sm"
-            onClick={() => setFilterType(f.value)}
+            className="gap-1"
+            onClick={() => setAddOpen(true)}
           >
-            {f.label}
+            <Plus size={14} />
+            Add Activity
           </Button>
-        ))}
-        <span className="ml-auto text-xs text-muted-foreground">
-          {filtered.length} activities
-        </span>
-        <Button
-          size="sm"
-          className="gap-1"
-          onClick={() => setAddOpen(true)}
-        >
-          <Plus size={14} />
-          Add Activity
-        </Button>
+        </div>
       </div>
 
       {/* Table */}

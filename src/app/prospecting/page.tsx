@@ -12,6 +12,7 @@ import {
   Sparkles,
   Plus,
   Pencil,
+  Search,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -98,13 +99,44 @@ export default function ProspectingPage() {
   const [editValues, setEditValues] = useState<Record<string, unknown>>({});
   const [editId, setEditId] = useState<string | null>(null);
 
+  // Filter state
+  const [filterStatus, setFilterStatus] = useState<"All" | ProspectStatus>("All");
+  const [filterTeamLead, setFilterTeamLead] = useState<string>("All");
+  const [filterIndustry, setFilterIndustry] = useState<string>("All");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [overdueOnly, setOverdueOnly] = useState(false);
+
+  // Unique industries from data
+  const industries = useMemo(() => {
+    const set = new Set(prospects.map((p) => p.industry));
+    return Array.from(set).sort();
+  }, [prospects]);
+
+  // Apply filters to all prospects, then split into focus/reserve
+  const filteredProspects = useMemo(() => {
+    let list = [...prospects];
+    if (filterStatus !== "All") list = list.filter((p) => p.status === filterStatus);
+    if (filterTeamLead !== "All") list = list.filter((p) => p.teamLead === filterTeamLead);
+    if (filterIndustry !== "All") list = list.filter((p) => p.industry === filterIndustry);
+    if (overdueOnly) list = list.filter((p) => isOverdue(p.nextFollowUpDate));
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.company.toLowerCase().includes(q) ||
+          p.nugget.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [prospects, filterStatus, filterTeamLead, filterIndustry, overdueOnly, searchQuery]);
+
   const focusList = useMemo(
-    () => prospects.filter((p) => p.list === "focus"),
-    [prospects]
+    () => filteredProspects.filter((p) => p.list === "focus"),
+    [filteredProspects]
   );
   const reserveList = useMemo(
-    () => prospects.filter((p) => p.list === "reserve"),
-    [prospects]
+    () => filteredProspects.filter((p) => p.list === "reserve"),
+    [filteredProspects]
   );
 
   // Stats
@@ -199,16 +231,78 @@ export default function ProspectingPage() {
         </Card>
       </div>
 
-      {/* Add Prospect button */}
-      <div className="flex items-center justify-end">
-        <Button
-          size="sm"
-          className="gap-1"
-          onClick={() => setAddOpen(true)}
-        >
-          <Plus size={14} />
-          Add Prospect
-        </Button>
+      {/* Filter bar */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Status filter */}
+          {(["All", "Active", "Cooling Off", "Responded", "Not Interested"] as const).map((s) => (
+            <Button
+              key={s}
+              variant={filterStatus === s ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterStatus(s)}
+            >
+              {s === "All" ? "All Statuses" : s}
+            </Button>
+          ))}
+          <span className="w-px h-5 bg-border mx-1" />
+          {/* Overdue Only toggle */}
+          <Button
+            variant={overdueOnly ? "default" : "outline"}
+            size="sm"
+            onClick={() => setOverdueOnly((v) => !v)}
+            className={overdueOnly ? "bg-red-600 hover:bg-red-700 text-white" : ""}
+          >
+            <AlertTriangle size={12} className="mr-1" />
+            Overdue Only
+          </Button>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Team Lead dropdown */}
+          <select
+            value={filterTeamLead}
+            onChange={(e) => setFilterTeamLead(e.target.value)}
+            className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="All">All Team Leads</option>
+            {TEAM_MEMBERS.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+          {/* Industry dropdown */}
+          <select
+            value={filterIndustry}
+            onChange={(e) => setFilterIndustry(e.target.value)}
+            className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="All">All Industries</option>
+            {industries.map((ind) => (
+              <option key={ind} value={ind}>{ind}</option>
+            ))}
+          </select>
+          {/* Search */}
+          <div className="relative">
+            <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search company or nugget..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 w-64 rounded-md border border-border bg-background pl-7 pr-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {filteredProspects.length} of {prospects.length} prospects
+          </span>
+          <Button
+            size="sm"
+            className="gap-1"
+            onClick={() => setAddOpen(true)}
+          >
+            <Plus size={14} />
+            Add Prospect
+          </Button>
+        </div>
       </div>
 
       {/* ================================================================== */}

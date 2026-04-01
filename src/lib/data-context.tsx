@@ -124,6 +124,7 @@ function mapLease(r: any): Lease {
     comp: r.comp ?? false,
     subleaseList: r.sublease_list ?? false,
     teamMembers: r.team_members ?? [],
+    status: r.status ?? "Active",
   };
 }
 
@@ -268,6 +269,7 @@ function toLeaseRow(l: Partial<Lease>): Record<string, unknown> {
   if (l.comp !== undefined) m.comp = l.comp;
   if (l.subleaseList !== undefined) m.sublease_list = l.subleaseList;
   if ((l as any).teamMembers !== undefined) m.team_members = (l as any).teamMembers;
+  if (l.status !== undefined) m.status = l.status;
   return m;
 }
 

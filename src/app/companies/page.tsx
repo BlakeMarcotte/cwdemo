@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { ArrowUpDown, Ban, Plus } from "lucide-react";
+import { ArrowUpDown, Ban, Plus, Search, X } from "lucide-react";
 import { useData, genId } from "@/lib/data-context";
 import { EditDialog, type FieldDef } from "@/components/edit-dialog";
 import { TEAM_MEMBERS } from "@/lib/data";
@@ -94,6 +94,71 @@ export default function CompaniesPage() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [addOpen, setAddOpen] = useState(false);
 
+  // Filter state
+  const [relationshipFilter, setRelationshipFilter] = useState<string[]>([]);
+  const [industryFilter, setIndustryFilter] = useState("");
+  const [cityFilter, setCityFilter] = useState("");
+  const [teamFilter, setTeamFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Derived filter options from data
+  const industries = useMemo(
+    () => [...new Set(companies.map((c) => c.industry).filter(Boolean))].sort(),
+    [companies],
+  );
+  const cities = useMemo(
+    () => [...new Set(companies.map((c) => c.city).filter(Boolean))].sort(),
+    [companies],
+  );
+
+  const RELATIONSHIP_OPTIONS = ["Prospect", "Client", "Past Client", "Vendor", "Competitor"];
+
+  function toggleRelationship(r: string) {
+    setRelationshipFilter((prev) =>
+      prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r],
+    );
+  }
+
+  const hasActiveFilters =
+    relationshipFilter.length > 0 ||
+    industryFilter !== "" ||
+    cityFilter !== "" ||
+    teamFilter !== "" ||
+    searchQuery !== "";
+
+  function clearFilters() {
+    setRelationshipFilter([]);
+    setIndustryFilter("");
+    setCityFilter("");
+    setTeamFilter("");
+    setSearchQuery("");
+  }
+
+  // Apply filters before sorting
+  const filtered = useMemo(() => {
+    return companies.filter((c) => {
+      // Relationship filter — if any selected, company must have at least one match
+      if (
+        relationshipFilter.length > 0 &&
+        !c.relationship.some((r) => relationshipFilter.includes(r))
+      )
+        return false;
+      // Industry filter
+      if (industryFilter && c.industry !== industryFilter) return false;
+      // City filter
+      if (cityFilter && c.city !== cityFilter) return false;
+      // Team member filter — check spocContact array
+      if (teamFilter && !(c.spocContact ?? []).includes(teamFilter)) return false;
+      // Search by company name
+      if (
+        searchQuery &&
+        !c.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+        return false;
+      return true;
+    });
+  }, [companies, relationshipFilter, industryFilter, cityFilter, teamFilter, searchQuery]);
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -104,8 +169,8 @@ export default function CompaniesPage() {
   }
 
   const sorted = useMemo(() => {
-    if (!sortKey) return companies;
-    return [...companies].sort((a, b) => {
+    if (!sortKey) return filtered;
+    return [...filtered].sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
       if (av == null && bv == null) return 0;
@@ -125,7 +190,7 @@ export default function CompaniesPage() {
         ? sa.localeCompare(sb)
         : sb.localeCompare(sa);
     });
-  }, [companies, sortKey, sortDir]);
+  }, [filtered, sortKey, sortDir]);
 
   function handleAddSave(formValues: Record<string, unknown>) {
     const msaBrokerage = formValues.msaBrokerage
@@ -181,6 +246,101 @@ export default function CompaniesPage() {
         values={emptyCompany}
         onSave={handleAddSave}
       />
+
+      {/* Filter bar */}
+      <div className="rounded-lg border border-border bg-card/50 px-3 py-2.5 space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Relationship toggle pills */}
+          <span className="text-xs text-muted-foreground mr-0.5">Relationship:</span>
+          {RELATIONSHIP_OPTIONS.map((r) => (
+            <button
+              key={r}
+              onClick={() => toggleRelationship(r)}
+              className={`inline-flex items-center rounded-md border px-2 h-7 text-xs font-medium transition-colors ${
+                relationshipFilter.includes(r)
+                  ? (relationshipColor[r] ?? "bg-accent text-accent-foreground border-border")
+                  : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+              }`}
+            >
+              {r}
+            </button>
+          ))}
+
+          <div className="h-5 w-px bg-border mx-1" />
+
+          {/* Industry dropdown */}
+          <select
+            value={industryFilter}
+            onChange={(e) => setIndustryFilter(e.target.value)}
+            className="h-7 rounded-md border border-border bg-transparent px-2 text-xs text-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+          >
+            <option value="">All Industries</option>
+            {industries.map((ind) => (
+              <option key={ind} value={ind}>
+                {ind}
+              </option>
+            ))}
+          </select>
+
+          {/* City dropdown */}
+          <select
+            value={cityFilter}
+            onChange={(e) => setCityFilter(e.target.value)}
+            className="h-7 rounded-md border border-border bg-transparent px-2 text-xs text-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+          >
+            <option value="">All Cities</option>
+            {cities.map((city) => (
+              <option key={city} value={city}>
+                {city}
+              </option>
+            ))}
+          </select>
+
+          {/* Team Member dropdown */}
+          <select
+            value={teamFilter}
+            onChange={(e) => setTeamFilter(e.target.value)}
+            className="h-7 rounded-md border border-border bg-transparent px-2 text-xs text-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+          >
+            <option value="">All Team Members</option>
+            {TEAM_MEMBERS.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+
+          <div className="h-5 w-px bg-border mx-1" />
+
+          {/* Search input */}
+          <div className="relative">
+            <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search companies..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-7 w-44 rounded-md border border-border bg-transparent pl-6 pr-2 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring focus:ring-1 focus:ring-ring/50"
+            />
+          </div>
+
+          {/* Clear filters */}
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="inline-flex items-center gap-1 rounded-md border border-border px-2 h-7 text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+            >
+              <X size={12} />
+              Clear filters
+            </button>
+          )}
+        </div>
+
+        {/* Count */}
+        <div className="text-xs text-muted-foreground">
+          Showing {filtered.length} of {companies.length} companies
+        </div>
+      </div>
 
       <div className="rounded-lg border border-border bg-card">
         <Table>

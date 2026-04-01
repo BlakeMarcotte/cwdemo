@@ -71,7 +71,7 @@ export function TopBar() {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-4 border-b border-border bg-background px-6">
+    <header className="flex h-12 shrink-0 items-center gap-4 border-b border-border bg-card px-6">
       <nav className="flex items-center gap-1 text-sm">
         {crumbs.map((crumb, i) => {
           const isLast = i === crumbs.length - 1;

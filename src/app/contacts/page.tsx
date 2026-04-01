@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useData, genId } from "@/lib/data-context";
 import { EditDialog, type FieldDef } from "@/components/edit-dialog";
-import { ArrowUpDown, Plus, Building2, ClipboardList } from "lucide-react";
+import { ArrowUpDown, Plus, Building2, ClipboardList, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -68,8 +68,32 @@ export default function ContactsPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [addOpen, setAddOpen] = useState(false);
   const [buildingFilter, setBuildingFilter] = useState<string>("all");
+  const [designationFilter, setDesignationFilter] = useState<Set<string>>(new Set());
+  const [companyFilter, setCompanyFilter] = useState<string>("All");
+  const [locationFilter, setLocationFilter] = useState<string>("All");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [quickActOpen, setQuickActOpen] = useState(false);
   const [quickActDefaults, setQuickActDefaults] = useState<Record<string, unknown>>({});
+
+  // Unique companies and locations from contacts
+  const uniqueCompanies = useMemo(() => {
+    const set = new Set(contacts.map((c) => c.company));
+    return Array.from(set).sort();
+  }, [contacts]);
+
+  const uniqueLocations = useMemo(() => {
+    const set = new Set(contacts.map((c) => c.location).filter(Boolean));
+    return Array.from(set).sort();
+  }, [contacts]);
+
+  function toggleDesignation(d: string) {
+    setDesignationFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(d)) next.delete(d);
+      else next.add(d);
+      return next;
+    });
+  }
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -81,12 +105,35 @@ export default function ContactsPage() {
   }
 
   const filtered = useMemo(() => {
-    if (buildingFilter === "all") return contacts;
-    const companyIds = new Set(
-      leases.filter((l) => l.buildingId === buildingFilter).map((l) => l.companyId)
-    );
-    return contacts.filter((c) => companyIds.has(c.companyId));
-  }, [contacts, leases, buildingFilter]);
+    let list = [...contacts];
+    if (buildingFilter !== "all") {
+      const companyIds = new Set(
+        leases.filter((l) => l.buildingId === buildingFilter).map((l) => l.companyId)
+      );
+      list = list.filter((c) => companyIds.has(c.companyId));
+    }
+    if (designationFilter.size > 0) {
+      list = list.filter((c) =>
+        c.designation.some((d) => designationFilter.has(d))
+      );
+    }
+    if (companyFilter !== "All") {
+      list = list.filter((c) => c.company === companyFilter);
+    }
+    if (locationFilter !== "All") {
+      list = list.filter((c) => c.location === locationFilter);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.email.toLowerCase().includes(q) ||
+          c.title.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [contacts, leases, buildingFilter, designationFilter, companyFilter, locationFilter, searchQuery]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -119,33 +166,83 @@ export default function ContactsPage() {
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold">Contacts</h1>
-          <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
-            <Plus size={14} className="mr-1" />
-            Add Contact
-          </Button>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <Building2 size={14} className="text-muted-foreground" />
-            <select
-              value={buildingFilter}
-              onChange={(e) => setBuildingFilter(e.target.value)}
-              className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="all">All Buildings</option>
-              {buildings.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.address}
-                </option>
-              ))}
-            </select>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-semibold">Contacts</h1>
+            <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
+              <Plus size={14} className="mr-1" />
+              Add Contact
+            </Button>
           </div>
-          <span className="text-xs text-muted-foreground">
-            {filtered.length}{buildingFilter !== "all" ? ` of ${contacts.length}` : ""} contacts
-          </span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <Building2 size={14} className="text-muted-foreground" />
+              <select
+                value={buildingFilter}
+                onChange={(e) => setBuildingFilter(e.target.value)}
+                className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="all">All Buildings</option>
+                {buildings.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.address}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {filtered.length}{buildingFilter !== "all" || designationFilter.size > 0 || companyFilter !== "All" || locationFilter !== "All" || searchQuery.trim() ? ` of ${contacts.length}` : ""} contacts
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Designation toggle buttons */}
+          <span className="text-xs text-muted-foreground mr-1">Designation:</span>
+          {["Decision Maker", "Influencer", "Coordinator", "End User"].map((d) => (
+            <Button
+              key={d}
+              variant={designationFilter.has(d) ? "default" : "outline"}
+              size="sm"
+              onClick={() => toggleDesignation(d)}
+            >
+              {d}
+            </Button>
+          ))}
+          <span className="w-px h-5 bg-border mx-1" />
+          {/* Company dropdown */}
+          <select
+            value={companyFilter}
+            onChange={(e) => setCompanyFilter(e.target.value)}
+            className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="All">All Companies</option>
+            {uniqueCompanies.map((co) => (
+              <option key={co} value={co}>{co}</option>
+            ))}
+          </select>
+          {/* Location dropdown */}
+          <select
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+            className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="All">All Locations</option>
+            {uniqueLocations.map((loc) => (
+              <option key={loc} value={loc}>{loc}</option>
+            ))}
+          </select>
+          {/* Search */}
+          <div className="relative">
+            <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search name, email, or title..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 w-56 rounded-md border border-border bg-background pl-7 pr-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
         </div>
       </div>
 
