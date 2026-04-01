@@ -11,6 +11,8 @@ import {
   Circle,
   Clock,
   Search,
+  Pin,
+  PinOff,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -168,6 +170,7 @@ export default function ActivitiesPage() {
   }
 
   // Derived counts
+  const pinnedCount = activities.filter((a) => a.pinned).length;
   const todoCount = activities.filter((a) => a.status === "To Do").length;
   const inProgressCount = activities.filter(
     (a) => a.status === "In Progress"
@@ -473,6 +476,9 @@ export default function ActivitiesPage() {
               <TableHead className="w-[130px]">Mobile</TableHead>
               <TableHead className="w-[170px]">Email</TableHead>
               <TableHead>Team</TableHead>
+              <TableHead className="w-[40px] text-center">
+                <Pin size={12} className="mx-auto text-muted-foreground/50" />
+              </TableHead>
               <TableHead className="w-[60px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -586,6 +592,30 @@ export default function ActivitiesPage() {
                       ))}
                     </div>
                   </TableCell>
+                  <TableCell className="text-center">
+                    <button
+                      onClick={() => {
+                        if (!activity.pinned && pinnedCount >= 10) return;
+                        updateActivity(activity.id, { pinned: !activity.pinned });
+                      }}
+                      className={`rounded p-1 transition-colors ${
+                        activity.pinned
+                          ? "text-amber-400 hover:text-muted-foreground"
+                          : pinnedCount >= 10
+                            ? "text-muted-foreground/20 cursor-not-allowed"
+                            : "text-muted-foreground/40 hover:text-amber-400"
+                      }`}
+                      title={
+                        activity.pinned
+                          ? "Remove from To-Do list"
+                          : pinnedCount >= 10
+                            ? "To-Do list is full (max 10)"
+                            : "Add to To-Do list"
+                      }
+                    >
+                      {activity.pinned ? <Pin size={14} /> : <PinOff size={14} />}
+                    </button>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <button
@@ -621,6 +651,7 @@ export default function ActivitiesPage() {
           addActivity({
             ...formValues,
             id: genId("a"),
+            pinned: false,
             addDate:
               formValues.addDate ||
               new Date().toLocaleDateString("en-US", {

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import {
   Building2,
@@ -10,10 +9,9 @@ import {
   Phone,
   Users,
   FileText,
-  CheckSquare2,
-  Square,
-  Plus,
-  X,
+  CheckCircle2,
+  Circle,
+  Clock,
   ListTodo,
   Crosshair,
 } from "lucide-react";
@@ -24,10 +22,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useData, genId } from "@/lib/data-context";
-import type { ActivityType, OpportunityStage, Goal, Quarter } from "@/lib/data";
+import { useData } from "@/lib/data-context";
+import type { ActivityType, OpportunityStage, TaskStatus, Goal, Quarter } from "@/lib/data";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -105,11 +101,6 @@ const activityIcon: Record<ActivityType, typeof Phone> = {
   Update: FileText,
 };
 
-const entityRoutes: Record<string, string> = {
-  company: "/companies",
-  contact: "/contacts",
-};
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -117,19 +108,12 @@ const entityRoutes: Record<string, string> = {
 export default function DashboardPage() {
   const {
     companies,
-    contacts,
     opportunities,
     activities,
     prospects,
-    todoItems,
-    addTodoItem,
-    updateTodoItem,
-    deleteTodoItem,
+    updateActivity,
     goals,
   } = useData();
-
-  const [newTodoTitle, setNewTodoTitle] = useState("");
-  const [showAddTodo, setShowAddTodo] = useState(false);
 
   // Derived data
   const totalCompanies = companies.length;
@@ -160,28 +144,29 @@ export default function DashboardPage() {
     )
     .slice(0, 6);
 
-  // To-Do items sorted by position, max 10
-  const sortedTodos = [...todoItems]
-    .sort((a, b) => a.position - b.position)
+  // Pinned activities for To-Do list (max 10), sorted: To Do first, then In Progress, then Done
+  const statusOrder: Record<TaskStatus, number> = { "To Do": 0, "In Progress": 1, Done: 2 };
+  const pinnedActivities = [...activities]
+    .filter((a) => a.pinned)
+    .sort((a, b) => statusOrder[a.status] - statusOrder[b.status])
     .slice(0, 10);
+  const pinnedDoneCount = pinnedActivities.filter((a) => a.status === "Done").length;
 
-  const todoDoneCount = sortedTodos.filter((t) => t.completed).length;
-
-  function handleAddTodo() {
-    if (!newTodoTitle.trim()) return;
-    const maxPos = todoItems.length > 0
-      ? Math.max(...todoItems.map((t) => t.position))
-      : 0;
-    addTodoItem({
-      id: genId("td"),
-      title: newTodoTitle.trim(),
-      completed: false,
-      position: maxPos + 1,
-      createdAt: new Date().toISOString().slice(0, 10),
-    });
-    setNewTodoTitle("");
-    setShowAddTodo(false);
-  }
+  const todoStatusIcon: Record<TaskStatus, typeof Circle> = {
+    "To Do": Circle,
+    "In Progress": Clock,
+    Done: CheckCircle2,
+  };
+  const todoStatusColor: Record<TaskStatus, string> = {
+    "To Do": "text-muted-foreground",
+    "In Progress": "text-blue-400",
+    Done: "text-emerald-400",
+  };
+  const nextStatus: Record<TaskStatus, TaskStatus> = {
+    "To Do": "In Progress",
+    "In Progress": "Done",
+    Done: "To Do",
+  };
 
   const summaryCards = [
     {
@@ -250,169 +235,123 @@ export default function DashboardPage() {
           })}
         </div>
 
-        {/* To-Do List + Pipeline Overview */}
+        {/* Pipeline Overview */}
+        <Card className="mt-4 border-border bg-card">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-foreground/80">
+              Pipeline Overview
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2.5">
+              {stageCounts.map(({ stage, count }) => (
+                <div key={stage} className="flex items-center gap-3">
+                  <span className="w-24 shrink-0 text-xs text-muted-foreground">
+                    {stage}
+                  </span>
+                  <div className="flex flex-1 items-center gap-2">
+                    <div className="h-5 flex-1 overflow-hidden rounded bg-muted/50">
+                      <div
+                        className={`h-full rounded ${stageColors[stage]} transition-all`}
+                        style={{
+                          width: `${(count / maxStageCount) * 100}%`,
+                          minWidth: count > 0 ? "1rem" : "0",
+                        }}
+                      />
+                    </div>
+                    <span className="w-6 text-right text-xs font-medium text-foreground/80">
+                      {count}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* To-Do List + Annual Goals */}
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-5">
-          {/* Top 10 To-Do */}
+          {/* To-Do List (pinned activities) */}
           <Card className="border-border bg-card lg:col-span-2">
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <ListTodo className="h-4 w-4 text-blue-400" />
-                  <CardTitle className="text-sm font-medium text-foreground/80">
-                    To-Do List
-                  </CardTitle>
-                  <span className="text-[10px] text-muted-foreground">
-                    {todoDoneCount}/{sortedTodos.length} done
-                  </span>
-                </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 w-6 p-0"
-                  onClick={() => setShowAddTodo(!showAddTodo)}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
+              <div className="flex items-center gap-2">
+                <ListTodo className="h-4 w-4 text-blue-400" />
+                <CardTitle className="text-sm font-medium text-foreground/80">
+                  To-Do List
+                </CardTitle>
+                <span className="text-[10px] text-muted-foreground">
+                  {pinnedDoneCount}/{pinnedActivities.length} done
+                </span>
               </div>
             </CardHeader>
             <CardContent>
-              {/* Add new todo input */}
-              {showAddTodo && (
-                <div className="mb-2 flex gap-1.5">
-                  <Input
-                    className="h-7 text-xs"
-                    placeholder="Add a to-do item..."
-                    value={newTodoTitle}
-                    onChange={(e) => setNewTodoTitle(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleAddTodo();
-                      if (e.key === "Escape") setShowAddTodo(false);
-                    }}
-                    autoFocus
-                  />
-                  <Button
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={handleAddTodo}
-                  >
-                    Add
-                  </Button>
-                </div>
-              )}
-
-              {/* Todo items */}
               <div className="space-y-0.5">
-                {sortedTodos.map((todo) => {
-                  const route =
-                    todo.entityType && todo.entityId && entityRoutes[todo.entityType]
-                      ? `${entityRoutes[todo.entityType]}/${todo.entityId}`
-                      : null;
+                {pinnedActivities.map((activity) => {
+                  const StatusIcon = todoStatusIcon[activity.status];
                   return (
                     <div
-                      key={todo.id}
+                      key={activity.id}
                       className="group flex items-start gap-2 rounded-md px-1.5 py-1.5 transition-colors hover:bg-muted/40"
                     >
                       <button
-                        className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                        className="mt-0.5 shrink-0 transition-colors"
                         onClick={() =>
-                          updateTodoItem(todo.id, {
-                            completed: !todo.completed,
+                          updateActivity(activity.id, {
+                            status: nextStatus[activity.status],
                           })
                         }
+                        title={`Status: ${activity.status} — click to advance`}
                       >
-                        {todo.completed ? (
-                          <CheckSquare2 className="h-3.5 w-3.5 text-emerald-400" />
-                        ) : (
-                          <Square className="h-3.5 w-3.5" />
-                        )}
+                        <StatusIcon
+                          className={`h-3.5 w-3.5 ${todoStatusColor[activity.status]}`}
+                        />
                       </button>
                       <div className="min-w-0 flex-1">
                         <p
                           className={`text-xs leading-snug ${
-                            todo.completed
+                            activity.status === "Done"
                               ? "text-muted-foreground line-through"
                               : "text-foreground"
                           }`}
                         >
-                          {todo.title}
+                          {activity.regarding.split(" — ")[0]}
                         </p>
-                        {todo.entityName && (
-                          <div className="mt-0.5">
-                            {route ? (
-                              <Link href={route}>
-                                <Badge
-                                  variant="outline"
-                                  className="text-[9px] font-normal bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20 cursor-pointer"
-                                >
-                                  {todo.entityName}
-                                </Badge>
-                              </Link>
-                            ) : (
+                        <div className="mt-0.5 flex items-center gap-1.5">
+                          {activity.company && (
+                            <Link href={`/companies/${activity.companyId}`}>
                               <Badge
                                 variant="outline"
-                                className="text-[9px] font-normal bg-muted text-muted-foreground border-border"
+                                className="text-[9px] font-normal bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20 cursor-pointer"
                               >
-                                {todo.entityName}
+                                {activity.company}
                               </Badge>
-                            )}
-                          </div>
-                        )}
+                            </Link>
+                          )}
+                          {activity.dueDate && (
+                            <span className="text-[9px] text-muted-foreground">
+                              Due {activity.dueDate}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <button
-                        className="mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all"
-                        onClick={() => deleteTodoItem(todo.id)}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
                     </div>
                   );
                 })}
-                {sortedTodos.length === 0 && (
+                {pinnedActivities.length === 0 && (
                   <p className="py-4 text-center text-xs text-muted-foreground">
-                    No to-do items yet. Click + to add one.
+                    No pinned activities. Pin activities from the{" "}
+                    <Link href="/activities" className="text-blue-400 hover:underline">
+                      Activities
+                    </Link>{" "}
+                    page.
                   </p>
                 )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Pipeline Overview */}
+          {/* Annual Goals */}
           <Card className="border-border bg-card lg:col-span-3">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-foreground/80">
-                Pipeline Overview
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2.5">
-                {stageCounts.map(({ stage, count }) => (
-                  <div key={stage} className="flex items-center gap-3">
-                    <span className="w-24 shrink-0 text-xs text-muted-foreground">
-                      {stage}
-                    </span>
-                    <div className="flex flex-1 items-center gap-2">
-                      <div className="h-5 flex-1 overflow-hidden rounded bg-muted/50">
-                        <div
-                          className={`h-full rounded ${stageColors[stage]} transition-all`}
-                          style={{
-                            width: `${(count / maxStageCount) * 100}%`,
-                            minWidth: count > 0 ? "1rem" : "0",
-                          }}
-                        />
-                      </div>
-                      <span className="w-6 text-right text-xs font-medium text-foreground/80">
-                        {count}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Annual Goals */}
-        <Card className="mt-4 border-border bg-card">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Crosshair className="h-4 w-4 text-emerald-400" />
@@ -519,6 +458,7 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+        </div>
 
         {/* Bottom Row: Activity Feed + Follow-ups */}
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-5">

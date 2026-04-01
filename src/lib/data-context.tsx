@@ -170,6 +170,7 @@ function mapActivity(r: any): Activity {
     regarding: r.regarding ?? "",
     addDate: r.add_date ?? "",
     teamMembers: r.team_members ?? [],
+    pinned: r.pinned ?? false,
   };
 }
 
@@ -317,6 +318,7 @@ function toActivityRow(a: Partial<Activity>): Record<string, unknown> {
   if (a.status !== undefined) m.status = a.status;
   if (a.dueDate !== undefined) m.due_date = a.dueDate;
   if ((a as any).teamMembers !== undefined) m.team_members = (a as any).teamMembers;
+  if (a.pinned !== undefined) m.pinned = a.pinned;
   return m;
 }
 
